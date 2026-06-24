@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <OutputType>WinExe</OutputType>
+    <UseWPF>true</UseWPF>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+
+    <IsPackable>false</IsPackable>
+
+    <NoWarn>$(NoWarn);CA1515</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../ConfigForge.Blazor/ConfigForge.Blazor.csproj" />
+
+    <ProjectReference Include="../../plugins/ConfigForge.Plugin.Template/ConfigForge.Plugin.Template.csproj" />
+
+    <ProjectReference
+      Include="../ConfigForge.Build/ConfigForge.Build.csproj"
+      OutputItemType="Analyzer"
+      ReferenceOutputAssembly="false"
+    />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Wpf" Version="8.0.100" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3485.44" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
+    <PackageReference Include="Serilog" Version="4.3.1" />
+    <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+    <PackageReference Include="Serilog.Extensions.Logging" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="wwwroot\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Schemas\showcase.json" LogicalName="schemas/showcase.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content
+      Include="plugins\**\*.dll"
+      CopyToOutputDirectory="PreserveNewest"
+      CopyToPublishDirectory="PreserveNewest"
+      ExcludeFromSingleFile="true"
+    />
+    <Content
+      Include="plugins\**\*.pdb"
+      CopyToOutputDirectory="PreserveNewest"
+      CopyToPublishDirectory="PreserveNewest"
+      ExcludeFromSingleFile="true"
+    />
+  </ItemGroup>
+</Project>

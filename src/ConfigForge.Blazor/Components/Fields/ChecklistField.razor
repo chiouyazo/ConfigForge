@@ -1,0 +1,70 @@
+@inherits FieldComponentBase
+
+<div class="cf-field">
+    <FieldLabel Control="Control" />
+    @if (Loading)
+    {
+        <div class="cf-loading" role="status">Loading options…</div>
+    }
+    else
+    {
+        <div class="cf-checklist">
+            @foreach (SelectOption option in Options)
+            {
+                <label class="cf-checkbox">
+                    <input type="checkbox"
+                           checked="@_selected.Contains(option.Value)"
+                           disabled="@(Disabled || Control.ReadOnly)"
+                           @onchange="@(e => OnToggleAsync(option.Value, e))" />
+                    <span>@option.Label</span>
+                </label>
+            }
+        </div>
+    }
+    <FieldDescription Control="Control" />
+</div>
+
+@code {
+    /// <summary>The selectable options, whether static or loader-supplied.</summary>
+    [Parameter]
+    public IReadOnlyList<SelectOption> Options { get; set; } = [];
+
+    /// <summary>True while loader-driven options are being fetched.</summary>
+    [Parameter]
+    public bool Loading { get; set; }
+
+    private HashSet<string> _selected = new(StringComparer.Ordinal);
+
+    protected override void OnParametersSet() => _selected = ReadSelected();
+
+    private Task OnToggleAsync(string value, ChangeEventArgs e)
+    {
+        if (e.Value is true)
+        {
+            _selected.Add(value);
+        }
+        else
+        {
+            _selected.Remove(value);
+        }
+
+        return NotifyChangedAsync(_selected.ToArray());
+    }
+
+    private HashSet<string> ReadSelected()
+    {
+        HashSet<string> result = new(StringComparer.Ordinal);
+        if (CurrentValue is IEnumerable<object?> items)
+        {
+            foreach (object? item in items)
+            {
+                if (item is not null)
+                {
+                    result.Add(item.ToString() ?? string.Empty);
+                }
+            }
+        }
+
+        return result;
+    }
+}

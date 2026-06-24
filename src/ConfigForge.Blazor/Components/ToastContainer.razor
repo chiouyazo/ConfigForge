@@ -1,0 +1,34 @@
+@implements IDisposable
+
+<div class="cf-toasts" aria-live="polite">
+    @foreach (ToastMessage toast in Session.Toasts)
+    {
+        <div class="cf-toast cf-toast-@SeverityClass(toast.Severity)" role="status" @key="toast.Id">
+            <span class="cf-toast-message">@toast.Message</span>
+            <button type="button"
+                    class="cf-toast-dismiss"
+                    aria-label="Dismiss notification"
+                    @onclick="@(() => Session.DismissToast(toast.Id))">×</button>
+        </div>
+    }
+</div>
+
+@code {
+    [Inject]
+    private EditingSession Session { get; set; } = default!;
+
+    protected override void OnInitialized() => Session.ToastsChanged += OnToastsChanged;
+
+    /// <inheritdoc />
+    public void Dispose() => Session.ToastsChanged -= OnToastsChanged;
+
+    private static string SeverityClass(ToastSeverity severity) => severity switch
+    {
+        ToastSeverity.Success => "success",
+        ToastSeverity.Warning => "warning",
+        ToastSeverity.Danger => "danger",
+        _ => "info",
+    };
+
+    private void OnToastsChanged(object? sender, EventArgs e) => InvokeAsync(StateHasChanged);
+}

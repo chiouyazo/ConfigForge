@@ -1,0 +1,25 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/plugins/">
+    <Project Path="plugins/ConfigForge.Plugin.Template/ConfigForge.Plugin.Template.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/ConfigForge.Abstractions/ConfigForge.Abstractions.csproj" />
+    <Project Path="src/ConfigForge.AspNet/ConfigForge.AspNet.csproj" />
+    <Project Path="src/ConfigForge.Blazor/ConfigForge.Blazor.csproj" />
+    <Project Path="src/ConfigForge.Build/ConfigForge.Build.csproj" />
+    <Project Path="src/ConfigForge.Core/ConfigForge.Core.csproj" />
+    <Project Path="src/ConfigForge.Standalone/ConfigForge.Standalone.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ConfigForge.AspNet.Tests/ConfigForge.AspNet.Tests.csproj" />
+    <Project Path="tests/ConfigForge.Blazor.Tests/ConfigForge.Blazor.Tests.csproj" />
+    <Project Path="tests/ConfigForge.Core.Tests/ConfigForge.Core.Tests.csproj" />
+    <Project Path="tests/ConfigForge.Integration.Tests/ConfigForge.Integration.Tests.csproj" />
+    <Project Path="tests/ConfigForge.Standalone.Tests/ConfigForge.Standalone.Tests.csproj" />
+  </Folder>
+</Solution>

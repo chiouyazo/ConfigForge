@@ -1,0 +1,16 @@
+@inherits FieldComponentBase
+
+<div class="cf-field">
+    <FieldLabel Control="Control" />
+    <textarea class="cf-input cf-code"
+              rows="10"
+              spellcheck="false"
+              placeholder="@Control.Placeholder"
+              disabled="@(Disabled || Control.ReadOnly)"
+              @onchange="OnInputAsync">@CurrentString</textarea>
+    <FieldDescription Control="Control" />
+</div>
+
+@code {
+    private Task OnInputAsync(ChangeEventArgs e) => NotifyChangedAsync(e.Value as string);
+}

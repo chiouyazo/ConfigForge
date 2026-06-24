@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Configuration</title>
+    <base href="/" />
+    <!--
+        ConfigForge styles. A WPF (non-Razor) BlazorWebView host does not reliably
+        serve Razor class library "_content/..." static assets, so a copy of the
+        RCL's configforge.css is bundled into this app's wwwroot and linked here.
+    -->
+    <link rel="stylesheet" href="configforge.css" />
+</head>
+<body>
+    <div id="app"></div>
+
+    <div id="blazor-error-ui">
+        An unhandled error has occurred.
+        <a href="" class="reload">Reload</a>
+        <span class="dismiss">&#x2715;</span>
+    </div>
+
+    <script src="_framework/blazor.webview.js"></script>
+</body>
+</html>

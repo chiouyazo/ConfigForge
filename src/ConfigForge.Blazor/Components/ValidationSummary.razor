@@ -1,0 +1,27 @@
+@if (HasErrors)
+{
+    <div class="cf-validation-summary" role="alert">
+        <strong class="cf-validation-title">@TotalCount issue@(TotalCount == 1 ? string.Empty : "s") must be resolved</strong>
+        <ul>
+            @foreach (string key in ParseResult!.MissingRequiredKeys)
+            {
+                <li><code>@key</code> is required.</li>
+            }
+            @foreach (ValidationError error in ParseResult.InvalidValues)
+            {
+                <li><code>@error.Key</code>: @error.Message</li>
+            }
+        </ul>
+    </div>
+}
+
+@code {
+    /// <summary>The parse result whose errors are aggregated.</summary>
+    [Parameter]
+    public ConfigDocumentParseResult? ParseResult { get; set; }
+
+    private bool HasErrors => TotalCount > 0;
+
+    private int TotalCount =>
+        ParseResult is null ? 0 : ParseResult.MissingRequiredKeys.Count + ParseResult.InvalidValues.Count;
+}

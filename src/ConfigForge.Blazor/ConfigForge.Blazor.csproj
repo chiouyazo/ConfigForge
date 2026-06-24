@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <PackageId>ConfigForge.Blazor</PackageId>
+    <Description>Blazor component library and UI services for ConfigForge.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../ConfigForge.Core/ConfigForge.Core.csproj" />
+  </ItemGroup>
+</Project>

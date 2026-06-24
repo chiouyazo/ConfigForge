@@ -1,0 +1,207 @@
+@page "/"
+@page "/config-ui"
+@rendermode InteractiveServer
+@using ConfigForge.Core.Documents
+@using ConfigForge.Core.Schema
+@inject IConfigForgeHostState State
+@inject IJsonFormsSchemaParser Parser
+@inject IConfigDocumentEngine Engine
+@inject IConfigDocumentGenerator Generator
+
+<div class="cf-host">
+    @if (_schemaChoices.Count > 1)
+    {
+        <div class="cf-host-toolbar">
+            <label class="cf-host-field">
+                <span>Schema</span>
+                <select class="cf-input cf-select" value="@_selectedSchemaId" @onchange="OnSchemaSelectedAsync">
+                    @if (_selectedSchemaId is null)
+                    {
+                        <option value="">Select a schema…</option>
+                    }
+                    @foreach (SchemaChoice choice in _schemaChoices)
+                    {
+                        <option value="@choice.Id">@choice.Label</option>
+                    }
+                </select>
+            </label>
+        </div>
+    }
+
+    @if (_loadError is not null)
+    {
+        <div class="cf-host-error" role="alert">@_loadError</div>
+    }
+
+    @if (_schema is not null)
+    {
+        <ConfigForgeShell @key="_loadGeneration"
+                          Schema="_schema"
+                          Document="_document"
+                          ParseResult="_parseResult"
+                          RawDocumentJson="_rawJson"
+                          Mode="State.Options.Mode"
+                          OnSave="OnSaveAsync" />
+    }
+    else
+    {
+        <p class="cf-host-empty">No schema is available. Add a combined schema document to the configured schema directory, or select one above.</p>
+    }
+</div>
+
+@code {
+    private sealed record SchemaChoice(string Id, string Label, string? FilePath);
+
+    private readonly List<SchemaChoice> _schemaChoices = [];
+
+    private string? _selectedSchemaId;
+    private ConfigSchema? _schema;
+    private ConfigDocument? _document;
+    private ConfigDocumentParseResult? _parseResult;
+    private string? _rawJson;
+    private string? _loadError;
+
+    private int _loadGeneration;
+
+    protected override async Task OnInitializedAsync()
+    {
+        BuildSchemaChoices();
+
+        if (_schemaChoices.Count >= 1)
+        {
+            await SelectSchemaAsync(_schemaChoices[0]).ConfigureAwait(false);
+        }
+    }
+
+    private void BuildSchemaChoices()
+    {
+        _schemaChoices.Clear();
+
+        if (State.Schemas.Count > 0)
+        {
+            foreach (ConfigSchema schema in State.Schemas.Values)
+            {
+                _schemaChoices.Add(new SchemaChoice(schema.Id, Label(schema.Id, schema.Name), null));
+            }
+
+            return;
+        }
+
+        foreach (SchemaChoice fileChoice in EnumerateSchemaFiles())
+        {
+            _schemaChoices.Add(fileChoice);
+        }
+    }
+
+    private IEnumerable<SchemaChoice> EnumerateSchemaFiles()
+    {
+        string dir = ResolveSchemaDirectory();
+        if (!Directory.Exists(dir))
+        {
+            yield break;
+        }
+
+        foreach (string path in Directory.EnumerateFiles(dir, "*.json"))
+        {
+            string id = Path.GetFileNameWithoutExtension(path);
+            yield return new SchemaChoice(id, id, path);
+        }
+    }
+
+    private string ResolveSchemaDirectory()
+    {
+        string configured = State.Options.SchemaDirectory;
+        return Path.IsPathRooted(configured)
+            ? configured
+            : Path.Combine(AppContext.BaseDirectory, configured);
+    }
+
+    private static string Label(string id, string? name) =>
+        string.IsNullOrEmpty(name) ? id : $"{name} ({id})";
+
+    private async Task OnSchemaSelectedAsync(ChangeEventArgs e)
+    {
+        string? id = e.Value as string;
+        SchemaChoice? choice = _schemaChoices.Find(c => c.Id == id);
+        if (choice is not null)
+        {
+            await SelectSchemaAsync(choice).ConfigureAwait(false);
+        }
+    }
+
+    private async Task SelectSchemaAsync(SchemaChoice choice)
+    {
+        _loadError = null;
+        _selectedSchemaId = choice.Id;
+
+        try
+        {
+            _schema = ResolveSchema(choice);
+        }
+        catch (SchemaParseException ex)
+        {
+            _schema = null;
+            _loadError = $"Could not parse schema '{choice.Id}': {ex.Message}";
+            return;
+        }
+
+        await SeedInitialDocumentAsync().ConfigureAwait(false);
+        Bump();
+    }
+
+    private ConfigSchema ResolveSchema(SchemaChoice choice)
+    {
+        if (State.Schemas.TryGetValue(choice.Id, out ConfigSchema? cached))
+        {
+            return cached;
+        }
+
+        if (choice.FilePath is not null)
+        {
+            return Parser.ParseFromFile(choice.FilePath);
+        }
+
+        throw new SchemaParseException($"Schema '{choice.Id}' is no longer available.");
+    }
+
+    private async Task SeedInitialDocumentAsync()
+    {
+        if (_schema is null)
+        {
+            return;
+        }
+
+        if (State.Options.OnLoad is not null)
+        {
+            string? persisted = await State.Options.OnLoad(_schema.Id).ConfigureAwait(false);
+            if (persisted is not null)
+            {
+                ConfigDocumentParseResult result = Engine.Parse(persisted, _schema);
+                SetDocument(result.Document, result, persisted);
+                return;
+            }
+        }
+
+        SetDocument(Generator.GenerateExample(_schema), parseResult: null, rawJson: null);
+    }
+
+    private void SetDocument(ConfigDocument document, ConfigDocumentParseResult? parseResult, string? rawJson)
+    {
+        _document = document;
+        _parseResult = parseResult;
+        _rawJson = rawJson;
+    }
+
+    private async Task OnSaveAsync(ConfigDocument document)
+    {
+        if (_schema is null || State.Options.OnSave is null)
+        {
+            return;
+        }
+
+        string payload = Engine.Serialize(document);
+        await State.Options.OnSave(_schema.Id, payload).ConfigureAwait(false);
+    }
+
+    private void Bump() => _loadGeneration++;
+}

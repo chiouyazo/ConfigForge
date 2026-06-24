@@ -1,0 +1,175 @@
+using ConfigForge.Abstractions;
+using ConfigForge.Blazor.Services;
+using ConfigForge.Core.Documents;
+using ConfigForge.Core.Schema;
+using Microsoft.AspNetCore.Components;
+
+namespace ConfigForge.Blazor.Components;
+
+/// <summary>
+/// The root ConfigForge component. It seeds the editing session from the supplied
+/// schema and document, subscribes to session changes to re-render, and wires the
+/// save, discard, and generate flows.
+/// </summary>
+public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
+{
+    private bool _showGenerateDialog;
+    private bool _initialized;
+    private bool _disposed;
+
+    /// <summary>The schema to edit against.</summary>
+    [Parameter]
+    [EditorRequired]
+    public ConfigSchema Schema { get; set; } = new();
+
+    /// <summary>The document to edit. A clone is taken so the original is untouched.</summary>
+    [Parameter]
+    public ConfigDocument? Document { get; set; }
+
+    /// <summary>The originating parse result, surfaced in the banners and summary.</summary>
+    [Parameter]
+    public ConfigDocumentParseResult? ParseResult { get; set; }
+
+    /// <summary>
+    /// The raw document JSON. Retained so the malformed-JSON fallback editor can
+    /// show the original text for correction when <see cref="ParseResult"/> reports a
+    /// <c>JsonError</c>.
+    /// </summary>
+    [Parameter]
+    public string? RawDocumentJson { get; set; }
+
+    /// <summary>The host mode; generation controls are shown only in Open mode.</summary>
+    [Parameter]
+    public ConfigForgeMode Mode { get; set; } = ConfigForgeMode.Open;
+
+    /// <summary>Whether the header's generate-document button is shown. Default true.</summary>
+    [Parameter]
+    public bool ShowGenerateButton { get; set; } = true;
+
+    /// <summary>
+    /// The label of the category to activate. Lets a host deep-link to a category
+    /// (e.g. from the URL). Matched case-insensitively against the schema categories.
+    /// </summary>
+    [Parameter]
+    public string? ActiveCategoryLabel { get; set; }
+
+    /// <summary>Raised with the new category label when the active category changes.</summary>
+    [Parameter]
+    public EventCallback<string> OnCategoryChanged { get; set; }
+
+    /// <summary>Raised when the user saves; receives the current document.</summary>
+    [Parameter]
+    public EventCallback<ConfigDocument> OnSave { get; set; }
+
+    [Inject]
+    private EditingSession Session { get; set; } = default!;
+
+    [Inject]
+    private IThemeProvider ThemeProvider { get; set; } = default!;
+
+    [Inject]
+    private IConfigDocumentGenerator Generator { get; set; } = default!;
+
+    private ThemeDefinition Theme => ThemeProvider.GetTheme();
+
+    private IReadOnlyList<CategoryElement> Categories => Schema.Categories;
+
+    private string HeaderTitle => string.IsNullOrEmpty(Schema.Name) ? "ConfigForge" : Schema.Name;
+
+    private string? HeaderSubtitle =>
+        string.IsNullOrEmpty(Schema.Version) ? null : $"v{Schema.Version}";
+
+    private bool IsValid => Session.ParseResult?.IsValid ?? true;
+
+    /// <inheritdoc />
+    protected override void OnInitialized() => Session.StateChanged += OnSessionChanged;
+
+    /// <inheritdoc />
+    protected override void OnParametersSet()
+    {
+        if (!_initialized)
+        {
+            _initialized = true;
+            ConfigDocument document = Document?.Clone() ?? new ConfigDocument();
+            Session.Initialize(Schema, document, ParseResult, RawDocumentJson);
+        }
+
+        SyncActiveCategoryFromLabel();
+    }
+
+    private void SyncActiveCategoryFromLabel()
+    {
+        if (string.IsNullOrEmpty(ActiveCategoryLabel))
+        {
+            return;
+        }
+
+        IReadOnlyList<CategoryElement> categories = Schema.Categories;
+        for (int i = 0; i < categories.Count; i++)
+        {
+            if (
+                string.Equals(
+                    categories[i].Label,
+                    ActiveCategoryLabel,
+                    StringComparison.OrdinalIgnoreCase
+                )
+            )
+            {
+                Session.SetActiveCategory(i);
+                break;
+            }
+        }
+    }
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        if (!_disposed)
+        {
+            _disposed = true;
+            Session.StateChanged -= OnSessionChanged;
+        }
+    }
+
+    private void OnSessionChanged(object? sender, EventArgs e) => InvokeAsync(StateHasChanged);
+
+    private async Task OnSelectCategory(int index)
+    {
+        Session.SetActiveCategory(index);
+
+        IReadOnlyList<CategoryElement> categories = Schema.Categories;
+        if (OnCategoryChanged.HasDelegate && index >= 0 && index < categories.Count)
+        {
+            await OnCategoryChanged.InvokeAsync(categories[index].Label).ConfigureAwait(false);
+        }
+    }
+
+    private void ShowGenerateDialog() => _showGenerateDialog = true;
+
+    private void HideGenerateDialog() => _showGenerateDialog = false;
+
+    private async Task SaveAsync()
+    {
+        await OnSave.InvokeAsync(Session.Document).ConfigureAwait(false);
+        Session.AcceptAsSaved();
+    }
+
+    private void Discard()
+    {
+        ConfigDocument document = Document?.Clone() ?? new ConfigDocument();
+        Session.ReplaceDocument(document, ParseResult);
+        Session.AcceptAsSaved();
+    }
+
+    private Task OnGenerateConfirmedAsync(GenerateDocumentDialog.GenerationMode mode)
+    {
+        ConfigDocument generated =
+            mode == GenerateDocumentDialog.GenerationMode.Example
+                ? Generator.GenerateExample(Schema)
+                : Generator.GenerateEmpty(Schema);
+
+        Session.Initialize(Schema, generated);
+        _showGenerateDialog = false;
+        return Task.CompletedTask;
+    }
+}

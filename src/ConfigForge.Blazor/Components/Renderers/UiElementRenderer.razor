@@ -1,0 +1,42 @@
+@switch (Element.Type)
+{
+    case "Categorization":
+    case "Category":
+        <CategoryRenderer Element="Element" Schema="Schema" Document="Document" />
+        break;
+    case "VerticalLayout":
+        <VerticalLayoutRenderer Element="Element" Schema="Schema" Document="Document" />
+        break;
+    case "HorizontalLayout":
+        <HorizontalLayoutRenderer Element="Element" Schema="Schema" Document="Document" />
+        break;
+    case "Group":
+        <GroupRenderer Element="Element" Schema="Schema" Document="Document" />
+        break;
+    case "Label":
+        <LabelRenderer Element="Element" />
+        break;
+    case "Control":
+        <ControlRenderer Element="Element" Schema="Schema" Document="Document" />
+        break;
+    default:
+        <VerticalLayoutRenderer Element="Element" Schema="Schema" Document="Document" />
+        break;
+}
+
+@code {
+    /// <summary>The UI element to render.</summary>
+    [Parameter]
+    [EditorRequired]
+    public UiElement Element { get; set; } = new();
+
+    /// <summary>The schema providing field definitions.</summary>
+    [Parameter]
+    [EditorRequired]
+    public ConfigSchema Schema { get; set; } = new();
+
+    /// <summary>The live document.</summary>
+    [Parameter]
+    [EditorRequired]
+    public ConfigDocument Document { get; set; } = new();
+}

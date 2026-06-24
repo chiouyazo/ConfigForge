@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <PackageId>ConfigForge.AspNet</PackageId>
+    <Description>ASP.NET Core integration that hosts the ConfigForge UI as interactive Blazor Server middleware.</Description>
+
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).xml</DocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference
+      Include="Microsoft.AspNetCore.App.Internal.Assets"
+      Version="[10.0.0,11.0.0)"
+      PrivateAssets="none"
+    />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../ConfigForge.Blazor/ConfigForge.Blazor.csproj" />
+  </ItemGroup>
+</Project>

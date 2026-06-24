@@ -1,0 +1,88 @@
+@if (_visible && _field is not null)
+{
+    <FieldRenderer Field="_field" Disabled="!_enabled" />
+}
+
+@code {
+    /// <summary>The Control UI element being rendered.</summary>
+    [Parameter]
+    [EditorRequired]
+    public UiElement Element { get; set; } = new();
+
+    /// <summary>The schema providing the field definitions.</summary>
+    [Parameter]
+    [EditorRequired]
+    public ConfigSchema Schema { get; set; } = new();
+
+    /// <summary>The live document, used to evaluate rule conditions.</summary>
+    [Parameter]
+    [EditorRequired]
+    public ConfigDocument Document { get; set; } = new();
+
+    [Inject]
+    private IJsonFormsRuleEvaluator RuleEvaluator { get; set; } = default!;
+
+    [Inject]
+    private EditingSession Session { get; set; } = default!;
+
+    private FieldDefinition? _field;
+    private bool _visible = true;
+    private bool _enabled = true;
+
+    protected override void OnParametersSet()
+    {
+        _field = ResolveField();
+        (_visible, bool ruleEnabled) = EvaluateRules();
+
+        bool programmaticEnabled = _field is null || Session.IsFieldEnabled(_field.Key);
+        _enabled = ruleEnabled && programmaticEnabled;
+    }
+
+    private FieldDefinition? ResolveField()
+    {
+        string? key = ScopeToKey(Element.Scope);
+        return key is not null && Schema.Fields.TryGetValue(key, out FieldDefinition? field) ? field : null;
+    }
+
+    private (bool Visible, bool Enabled) EvaluateRules()
+    {
+        bool visible = true;
+        bool enabled = !(_field?.ReadOnly ?? false);
+
+        if (Element.Rule is not null)
+        {
+            (visible, enabled) = Apply(Element.Rule, visible, enabled);
+        }
+
+        if (_field is not null)
+        {
+            foreach (JsonFormsRule rule in _field.Rules)
+            {
+                (visible, enabled) = Apply(rule, visible, enabled);
+            }
+        }
+
+        return (visible, enabled);
+    }
+
+    private (bool Visible, bool Enabled) Apply(JsonFormsRule rule, bool visible, bool enabled) =>
+        RuleEvaluator.Evaluate(rule, Document) switch
+        {
+            RuleEffect.Hide => (false, enabled),
+            RuleEffect.Show => (true, enabled),
+            RuleEffect.Disable => (visible, false),
+            RuleEffect.Enable => (visible, true),
+            _ => (visible, enabled),
+        };
+
+    private static string? ScopeToKey(string? scope)
+    {
+        if (string.IsNullOrEmpty(scope))
+        {
+            return null;
+        }
+
+        int index = scope.LastIndexOf('/');
+        return index >= 0 && index < scope.Length - 1 ? scope[(index + 1)..] : scope;
+    }
+}

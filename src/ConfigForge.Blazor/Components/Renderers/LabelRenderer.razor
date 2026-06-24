@@ -1,0 +1,11 @@
+@if (!string.IsNullOrEmpty(Element.Label))
+{
+    <p class="cf-standalone-label">@Element.Label</p>
+}
+
+@code {
+    /// <summary>The label element to render.</summary>
+    [Parameter]
+    [EditorRequired]
+    public UiElement Element { get; set; } = new();
+}

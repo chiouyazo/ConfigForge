@@ -1,0 +1,20 @@
+@inherits FieldComponentBase
+
+<div class="cf-field">
+    <label class="cf-checkbox">
+        <input type="checkbox"
+               checked="@CurrentBool"
+               disabled="@(Disabled || Control.ReadOnly)"
+               @onchange="OnToggleAsync" />
+        <span>@Control.Title</span>
+        @if (Control.Required)
+        {
+            <span class="cf-required" aria-hidden="true">*</span>
+        }
+    </label>
+    <FieldDescription Control="Control" />
+</div>
+
+@code {
+    private Task OnToggleAsync(ChangeEventArgs e) => NotifyChangedAsync(e.Value is true);
+}

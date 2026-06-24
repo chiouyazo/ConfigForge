@@ -1,0 +1,63 @@
+<header class="cf-header">
+    <div class="cf-header-left cf-header-slot @(IsHeaderPosition(LogoPosition.TopLeft) ? "cf-has-logo" : string.Empty)">
+        @if (IsHeaderPosition(LogoPosition.TopLeft))
+        {
+            <CfLogo Logo="Logo" />
+        }
+        <div class="cf-header-titles">
+            <h1 class="cf-title">@Title</h1>
+            @if (!string.IsNullOrEmpty(Subtitle))
+            {
+                <p class="cf-subtitle">@Subtitle</p>
+            }
+        </div>
+    </div>
+
+    <div class="cf-header-center cf-header-slot">
+        @if (IsHeaderPosition(LogoPosition.TopCenter))
+        {
+            <CfLogo Logo="Logo" />
+        }
+    </div>
+
+    <div class="cf-header-right cf-header-slot">
+        @if (IsHeaderPosition(LogoPosition.TopRight))
+        {
+            <CfLogo Logo="Logo" />
+        }
+        @if (Mode == ConfigForgeMode.Open && ShowGenerateButton)
+        {
+            <button type="button" class="cf-button cf-button-primary" @onclick="OnGenerate">
+                Generate document…
+            </button>
+        }
+    </div>
+</header>
+
+@code {
+    /// <summary>The schema title shown in the header.</summary>
+    [Parameter]
+    public string Title { get; set; } = string.Empty;
+
+    /// <summary>An optional subtitle, e.g. the schema version.</summary>
+    [Parameter]
+    public string? Subtitle { get; set; }
+
+    /// <summary>An optional logo; only header-positioned logos render here.</summary>
+    [Parameter]
+    public LogoDefinition? Logo { get; set; }
+
+    /// <summary>The host mode; generation controls show only in Open mode.</summary>
+    [Parameter]
+    public ConfigForgeMode Mode { get; set; }
+
+    /// <summary>Whether the generate-document button is shown (Open mode only). Default true.</summary>
+    [Parameter]
+    public bool ShowGenerateButton { get; set; } = true;
+
+    /// <summary>Raised when the user clicks the generate-document button.</summary>
+    [Parameter]
+    public EventCallback OnGenerate { get; set; }
+
+    private bool IsHeaderPosition(LogoPosition position) => Logo is not null && Logo.Position == position;
+}

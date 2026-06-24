@@ -1,0 +1,11 @@
+<Window
+  x:Class="ConfigForge.Standalone.ConfigForgeWindow"
+  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:blazor="clr-namespace:Microsoft.AspNetCore.Components.WebView.Wpf;assembly=Microsoft.AspNetCore.Components.WebView.Wpf"
+  Title="Configuration"
+  Width="1100"
+  Height="800"
+>
+  <blazor:BlazorWebView x:Name="BlazorWebView" HostPage="wwwroot/index.html" />
+</Window>

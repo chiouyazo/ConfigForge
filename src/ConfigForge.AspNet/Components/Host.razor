@@ -1,0 +1,74 @@
+@inject IConfigForgeHostState State
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@Title</title>
+    <base href="/" />
+    <link rel="stylesheet" href="_content/ConfigForge.AspNet/configforge.css" />
+    @((MarkupString)$"<style>{ThemeVariables}</style>")
+    @((MarkupString)$"<style>{CssText}</style>")
+    <HeadOutlet />
+</head>
+
+<body>
+    <Routes @rendermode="InteractiveServer" />
+    <script src="_framework/blazor.web.js"></script>
+</body>
+
+</html>
+
+@code {
+    private static string? _css;
+
+    /// <summary>The browser tab title, taken from the configured application title.</summary>
+    private string Title => State.Options.ApplicationTitle;
+
+    /// <summary>The resolved theme rendered as <c>:root</c> CSS custom properties.</summary>
+    private string ThemeVariables
+    {
+        get
+        {
+            ThemeDefinition theme = State.Options.ThemeProvider.GetTheme();
+            return ":root{"
+                + $"--cf-primary:{theme.PrimaryColor};"
+                + $"--cf-surface:{theme.SurfaceColor};"
+                + $"--cf-background:{theme.BackgroundColor};"
+                + $"--cf-text-primary:{theme.TextPrimaryColor};"
+                + $"--cf-text-secondary:{theme.TextSecondaryColor};"
+                + $"--cf-danger:{theme.DangerColor};"
+                + $"--cf-success:{theme.SuccessColor};"
+                + $"--cf-warning:{theme.WarningColor};"
+                + $"--cf-font-family:{theme.FontFamily};"
+                + $"--cf-border-radius:{theme.BorderRadius};"
+                + "}";
+        }
+    }
+
+    private string CssText => _css ??= LoadBundledCss();
+
+    private static string LoadBundledCss()
+    {
+        try
+        {
+            string baseDir = AppContext.BaseDirectory;
+            string path = System.IO.Path.Combine(
+                baseDir,
+                "wwwroot",
+                "configforge.css"
+            );
+            if (System.IO.File.Exists(path))
+            {
+                return System.IO.File.ReadAllText(path);
+            }
+        }
+        catch (IOException)
+        {
+        }
+
+        return string.Empty;
+    }
+}

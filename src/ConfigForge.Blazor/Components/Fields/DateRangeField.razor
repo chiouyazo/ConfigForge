@@ -1,0 +1,65 @@
+@inherits FieldComponentBase
+
+<div class="cf-field">
+    <FieldLabel Control="Control" />
+    <div class="cf-input-group cf-daterange">
+        <input class="cf-input"
+               type="date"
+               value="@_from"
+               aria-label="From"
+               disabled="@(Disabled || Control.ReadOnly)"
+               @onchange="OnFromAsync" />
+        <span class="cf-daterange-sep">→</span>
+        <input class="cf-input"
+               type="date"
+               value="@_to"
+               aria-label="To"
+               disabled="@(Disabled || Control.ReadOnly)"
+               @onchange="OnToAsync" />
+    </div>
+    <FieldDescription Control="Control" />
+</div>
+
+@code {
+    private string _from = string.Empty;
+    private string _to = string.Empty;
+
+    protected override void OnParametersSet()
+    {
+        (_from, _to) = ReadRange();
+    }
+
+    private Task OnFromAsync(ChangeEventArgs e)
+    {
+        _from = e.Value as string ?? string.Empty;
+        return NotifyRangeAsync();
+    }
+
+    private Task OnToAsync(ChangeEventArgs e)
+    {
+        _to = e.Value as string ?? string.Empty;
+        return NotifyRangeAsync();
+    }
+
+    private Task NotifyRangeAsync()
+    {
+        Dictionary<string, object?> range = new(StringComparer.Ordinal)
+        {
+            ["from"] = _from,
+            ["to"] = _to,
+        };
+        return NotifyChangedAsync(range);
+    }
+
+    private (string From, string To) ReadRange()
+    {
+        if (CurrentValue is IReadOnlyDictionary<string, object?> map)
+        {
+            string from = map.TryGetValue("from", out object? f) ? f?.ToString() ?? string.Empty : string.Empty;
+            string to = map.TryGetValue("to", out object? t) ? t?.ToString() ?? string.Empty : string.Empty;
+            return (from, to);
+        }
+
+        return (string.Empty, string.Empty);
+    }
+}

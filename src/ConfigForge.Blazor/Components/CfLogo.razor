@@ -1,0 +1,12 @@
+@if (Logo is not null && Logo.Base64Data.Length > 0)
+{
+    <img class="cf-logo" src="@DataUri" alt="@Logo.AltText" />
+}
+
+@code {
+    /// <summary>The logo to render.</summary>
+    [Parameter]
+    public LogoDefinition? Logo { get; set; }
+
+    private string DataUri => $"data:{Logo!.MimeType};base64,{Logo.Base64Data}";
+}

@@ -1,0 +1,108 @@
+@implements IDisposable
+
+@if (TopActions.Count > 0 || BottomActions.Count > 0)
+{
+    <div class="cf-action-bar">
+        @foreach (ActionDefinition action in TopActions)
+        {
+            @RenderAction(action)
+        }
+        @foreach (ActionDefinition action in BottomActions)
+        {
+            @RenderAction(action)
+        }
+    </div>
+}
+
+@code {
+    [Inject]
+    private IActionDispatcher Dispatcher { get; set; } = default!;
+
+    [Inject]
+    private EditingSession Session { get; set; } = default!;
+
+    [Inject]
+    private IServiceProvider Services { get; set; } = default!;
+
+    private bool _busy;
+
+    private IReadOnlyList<ActionDefinition> TopActions =>
+        ActionsForActiveCategory("top");
+
+    private IReadOnlyList<ActionDefinition> BottomActions =>
+        ActionsForActiveCategory("bottom");
+
+    /// <inheritdoc />
+    protected override void OnInitialized() => Session.StateChanged += OnSessionChanged;
+
+    /// <inheritdoc />
+    public void Dispose() => Session.StateChanged -= OnSessionChanged;
+
+    private void OnSessionChanged(object? sender, EventArgs e) => InvokeAsync(StateHasChanged);
+
+    private RenderFragment RenderAction(ActionDefinition action) =>
+        @<button type="button"
+                 class="cf-button @VariantClass(action.Variant)"
+                 disabled="@_busy"
+                 @onclick="@(() => DispatchAsync(action.ActionId))">
+            @if (!string.IsNullOrEmpty(action.Icon))
+            {
+                <span class="cf-icon-@action.Icon" aria-hidden="true"></span>
+            }
+            <span>@action.Label</span>
+        </button>;
+
+    private IReadOnlyList<ActionDefinition> ActionsForActiveCategory(string position)
+    {
+        ConfigSchema? schema = Session.Schema;
+        if (schema is null || schema.Actions.Count == 0)
+        {
+            return [];
+        }
+
+        string? activeLabel =
+            schema.Categories.Count > Session.ActiveCategoryIndex
+            && Session.ActiveCategoryIndex >= 0
+                ? schema.Categories[Session.ActiveCategoryIndex].Label
+                : null;
+
+        List<ActionDefinition> matches = [];
+        foreach (ActionDefinition action in schema.Actions)
+        {
+            bool global = string.IsNullOrEmpty(action.Category);
+            bool inCategory =
+                activeLabel is not null
+                && string.Equals(action.Category, activeLabel, StringComparison.Ordinal);
+            bool positionMatch = string.Equals(action.Position, position, StringComparison.OrdinalIgnoreCase);
+
+            if ((global || inCategory) && positionMatch)
+            {
+                matches.Add(action);
+            }
+        }
+
+        return matches;
+    }
+
+    private static string VariantClass(string variant) =>
+        variant switch
+        {
+            "primary" => "cf-button-primary",
+            "danger" => "cf-button-danger",
+            _ => "cf-button-secondary",
+        };
+
+    private async Task DispatchAsync(string actionId)
+    {
+        _busy = true;
+        try
+        {
+            ActionContext context = new(Session, Services);
+            await Dispatcher.DispatchActionAsync(actionId, context).ConfigureAwait(false);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

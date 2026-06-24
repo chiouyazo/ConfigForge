@@ -1,0 +1,8 @@
+**/bin/
+**/obj/
+artifacts/
+.git/
+.github/
+.vs/
+**/*.user
+ConfigForge.slnx

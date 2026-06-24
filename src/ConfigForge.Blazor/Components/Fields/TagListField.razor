@@ -1,0 +1,81 @@
+@inherits FieldComponentBase
+
+<div class="cf-field">
+    <FieldLabel Control="Control" />
+    <div class="cf-taglist">
+        @foreach (string tag in _tags)
+        {
+            <span class="cf-tag">
+                @tag
+                @if (!(Disabled || Control.ReadOnly))
+                {
+                    <button type="button"
+                            class="cf-tag-remove"
+                            aria-label="@($"Remove {tag}")"
+                            @onclick="@(() => RemoveTagAsync(tag))">×</button>
+                }
+            </span>
+        }
+    </div>
+    @if (!(Disabled || Control.ReadOnly))
+    {
+        <input class="cf-input"
+               type="text"
+               value="@_draft"
+               placeholder="@AddPlaceholder"
+               @onchange="OnDraftChanged"
+               @onkeydown="OnKeyDownAsync" />
+    }
+    <FieldDescription Control="Control" />
+</div>
+
+@code {
+    private List<string> _tags = [];
+    private string _draft = string.Empty;
+
+    private string AddPlaceholder =>
+        string.IsNullOrEmpty(Control.Placeholder) ? "Add a tag and press Enter" : Control.Placeholder;
+
+    protected override void OnParametersSet() => _tags = ReadTags();
+
+    private void OnDraftChanged(ChangeEventArgs e) => _draft = e.Value as string ?? string.Empty;
+
+    private Task OnKeyDownAsync(KeyboardEventArgs e) =>
+        e.Key is "Enter" or "," ? AddDraftAsync() : Task.CompletedTask;
+
+    private Task AddDraftAsync()
+    {
+        string trimmed = _draft.Trim();
+        _draft = string.Empty;
+        if (trimmed.Length == 0 || _tags.Contains(trimmed, StringComparer.Ordinal))
+        {
+            return Task.CompletedTask;
+        }
+
+        _tags.Add(trimmed);
+        return NotifyChangedAsync(_tags.ToArray());
+    }
+
+    private Task RemoveTagAsync(string tag)
+    {
+        _tags.Remove(tag);
+        return NotifyChangedAsync(_tags.ToArray());
+    }
+
+    private List<string> ReadTags()
+    {
+        List<string> result = [];
+        if (CurrentValue is IEnumerable<object?> items)
+        {
+            foreach (object? item in items)
+            {
+                if (item is not null)
+                {
+                    result.Add(item.ToString() ?? string.Empty);
+                }
+            }
+        }
+
+        return result;
+    }
+}

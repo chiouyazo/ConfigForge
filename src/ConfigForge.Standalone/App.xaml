@@ -1,0 +1,11 @@
+<Application
+  x:Class="ConfigForge.Standalone.App"
+  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+>
+  <!--
+        No StartupUri: the main window is created and shown in App.OnStartup so
+        that startup failures can be logged and turned into a clean shutdown.
+    -->
+  <Application.Resources />
+</Application>

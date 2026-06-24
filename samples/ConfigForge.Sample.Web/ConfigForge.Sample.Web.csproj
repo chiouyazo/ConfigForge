@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>ConfigForge.Sample.Web</RootNamespace>
+
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <AnalysisMode>Default</AnalysisMode>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/ConfigForge.Blazor/ConfigForge.Blazor.csproj" />
+    <ProjectReference Include="../../plugins/ConfigForge.Plugin.Template/ConfigForge.Plugin.Template.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="plugins/**/*.cs" />
+    <Content Remove="plugins/**/*" />
+    <None Remove="plugins/**/*" />
+  </ItemGroup>
+
+</Project>

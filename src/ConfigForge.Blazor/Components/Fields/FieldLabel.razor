@@ -1,0 +1,17 @@
+@if (!string.IsNullOrEmpty(Control.Title))
+{
+    <label class="cf-label" title="@Control.Tooltip">
+        @Control.Title
+        @if (Control.Required)
+        {
+            <span class="cf-required" aria-hidden="true">*</span>
+        }
+    </label>
+}
+
+@code {
+    /// <summary>The control whose label metadata is rendered.</summary>
+    [Parameter]
+    [EditorRequired]
+    public ControlDescriptor Control { get; set; } = new();
+}

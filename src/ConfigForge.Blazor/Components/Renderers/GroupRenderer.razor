@@ -1,0 +1,29 @@
+<fieldset class="cf-group">
+    @if (!string.IsNullOrEmpty(Element.Label))
+    {
+        <legend class="cf-group-title">@Element.Label</legend>
+    }
+    <div class="cf-layout cf-vertical">
+        @foreach (UiElement child in Element.Elements)
+        {
+            <UiElementRenderer Element="child" Schema="Schema" Document="Document" />
+        }
+    </div>
+</fieldset>
+
+@code {
+    /// <summary>The group element whose children are rendered inside the panel.</summary>
+    [Parameter]
+    [EditorRequired]
+    public UiElement Element { get; set; } = new();
+
+    /// <summary>The schema providing field definitions.</summary>
+    [Parameter]
+    [EditorRequired]
+    public ConfigSchema Schema { get; set; } = new();
+
+    /// <summary>The live document.</summary>
+    [Parameter]
+    [EditorRequired]
+    public ConfigDocument Document { get; set; } = new();
+}

@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <PackageId>ConfigForge.Core</PackageId>
+    <Description>Schema parsing, document engine, and plugin host for ConfigForge.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../ConfigForge.Abstractions/ConfigForge.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="JsonSchema.Net" Version="7.4.0" />
+    <PackageReference Include="Serilog" Version="4.3.0" />
+    <PackageReference
+      Include="Microsoft.Extensions.DependencyInjection.Abstractions"
+      Version="9.0.0"
+    />
+  </ItemGroup>
+</Project>

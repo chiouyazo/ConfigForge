@@ -1,0 +1,309 @@
+@implements ConfigForge.Abstractions.IConfigControl
+@using ConfigForge.Abstractions
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web
+
+@{
+    List<ScheduleGroup> groups = ReadGroups(Document[Control.Key]);
+}
+
+<div class="cf-field cfs-sched">
+    @if (!string.IsNullOrEmpty(Control.Title))
+    {
+        <label class="cf-label" title="@Control.Tooltip">@Control.Title</label>
+    }
+
+    <div class="cfs-sched-toolbar">
+        <button type="button" class="cfs-btn" @onclick="EnableAll">Enable all</button>
+        <button type="button" class="cfs-btn" @onclick="DisableAll">Disable all</button>
+        <button type="button" class="cfs-btn cfs-btn-primary" @onclick="AddGroup">+ Add group</button>
+    </div>
+
+    @if (groups.Count == 0)
+    {
+        <p class="cfs-sched-empty">No maintenance windows yet. Use &ldquo;Add group&rdquo; to create one.</p>
+    }
+
+    @for (int i = 0; i < groups.Count; i++)
+    {
+        int index = i;
+        ScheduleGroup group = groups[index];
+
+        <div class="cfs-sched-row @(group.Enabled ? "" : "cfs-disabled")">
+            <div class="cfs-sched-rowhead">
+                <input type="checkbox"
+                       checked="@group.Enabled"
+                       @onchange="e => ToggleEnabled(index, e)"
+                       title="Enable this window" />
+                <input type="text"
+                       class="cfs-sched-label"
+                       value="@group.Label"
+                       placeholder="Window label"
+                       disabled="@(!group.Enabled)"
+                       @oninput="e => SetLabel(index, e)" />
+                <button type="button"
+                        class="cfs-btn cfs-btn-x"
+                        title="Remove this window"
+                        @onclick="() => RemoveGroup(index)">×</button>
+            </div>
+
+            <div class="cfs-sched-days">
+                @foreach (string day in Weekdays)
+                {
+                    string d = day;
+                    bool on = group.Days.Contains(d);
+                    <button type="button"
+                            class="cfs-day @(on ? "cfs-day-on" : "")"
+                            disabled="@(!group.Enabled)"
+                            @onclick="() => ToggleDay(index, d)">@d</button>
+                }
+            </div>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(Control.Description))
+    {
+        <p class="cf-description">@Control.Description</p>
+    }
+</div>
+
+<style>
+    .cfs-sched-toolbar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+
+    .cfs-sched .cfs-btn {
+        border: 1px solid var(--cf-border, #d0d0d8);
+        background: var(--cf-surface, #fff);
+        color: var(--cf-text-primary, #1a1a22);
+        border-radius: 8px;
+        padding: 6px 12px;
+        cursor: pointer;
+        font-size: 0.85rem;
+    }
+    .cfs-sched .cfs-btn:hover { background: var(--cf-background, #f0f0f4); }
+    .cfs-sched .cfs-btn:disabled { cursor: not-allowed; opacity: 0.5; }
+    .cfs-sched .cfs-btn-primary {
+        border-color: var(--cf-primary, #3b82f6);
+        color: var(--cf-primary, #3b82f6);
+        font-weight: 600;
+    }
+    .cfs-sched .cfs-btn-x {
+        padding: 2px 10px;
+        font-size: 1.1rem;
+        line-height: 1;
+        color: var(--cf-text-secondary, #6b6b76);
+    }
+    .cfs-sched .cfs-btn-x:hover { color: var(--cf-danger, #dc2626); }
+
+    .cfs-sched-row {
+        border: 1px solid var(--cf-border, #d0d0d8);
+        border-radius: 12px;
+        padding: 12px;
+        margin-bottom: 10px;
+        background: var(--cf-surface, #fff);
+    }
+    .cfs-sched-row.cfs-disabled { opacity: 0.55; }
+
+    .cfs-sched-rowhead { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .cfs-sched-label {
+        flex: 1;
+        border: 1px solid var(--cf-border, #d0d0d8);
+        border-radius: 8px;
+        padding: 6px 10px;
+        font-size: 0.9rem;
+    }
+
+    .cfs-sched-days { display: flex; gap: 6px; flex-wrap: wrap; }
+    .cfs-sched .cfs-day {
+        border: 1px solid var(--cf-border, #d0d0d8);
+        background: var(--cf-background, #f6f6f9);
+        color: var(--cf-text-secondary, #6b6b76);
+        border-radius: 999px;
+        width: 46px;
+        padding: 6px 0;
+        text-align: center;
+        cursor: pointer;
+        font-size: 0.8rem;
+    }
+    .cfs-sched .cfs-day:disabled { cursor: not-allowed; }
+    .cfs-sched .cfs-day-on {
+        background: var(--cf-primary, #3b82f6);
+        border-color: var(--cf-primary, #3b82f6);
+        color: #fff;
+        font-weight: 600;
+    }
+
+    .cfs-sched-empty, .cfs-sched .cf-description {
+        color: var(--cf-text-secondary, #6b6b76);
+        font-size: 0.85rem;
+    }
+</style>
+
+@code {
+    private static readonly string[] Weekdays =
+        ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+    /// <inheritdoc />
+    [Parameter]
+    public ControlDescriptor Control { get; set; } = new();
+
+    /// <inheritdoc />
+    [Parameter]
+    public ConfigDocument Document { get; set; } = new();
+
+    /// <inheritdoc />
+    [Parameter]
+    public EventCallback<FieldChangedArgs> OnFieldChanged { get; set; }
+
+    /// <summary>
+    /// Defensively reads the stored value into editor groups. Accepts the engine's
+    /// parse shape (List&lt;object?&gt; of Dictionary&lt;string,object?&gt;), tolerates
+    /// missing/odd members, and treats null/anything-else as empty.
+    /// </summary>
+    private static List<ScheduleGroup> ReadGroups(object? raw)
+    {
+        List<ScheduleGroup> result = [];
+        if (raw is not IEnumerable<object?> items)
+        {
+            return result;
+        }
+
+        foreach (object? item in items)
+        {
+            if (item is not IDictionary<string, object?> map)
+            {
+                continue;
+            }
+
+            string label = map.TryGetValue("label", out object? l)
+                ? l as string ?? string.Empty
+                : string.Empty;
+            bool enabled = map.TryGetValue("enabled", out object? e) && e is bool b && b;
+
+            List<string> days = [];
+            if (map.TryGetValue("days", out object? d) && d is IEnumerable<object?> dayList)
+            {
+                foreach (object? dv in dayList)
+                {
+                    if (dv is string s && Weekdays.Contains(s) && !days.Contains(s))
+                    {
+                        days.Add(s);
+                    }
+                }
+            }
+
+            result.Add(new ScheduleGroup { Label = label, Enabled = enabled, Days = days });
+        }
+
+        return result;
+    }
+
+    private List<ScheduleGroup> CurrentGroups() => ReadGroups(Document[Control.Key]);
+
+    private Task EnableAll()
+    {
+        List<ScheduleGroup> groups = CurrentGroups();
+        groups.ForEach(g => g.Enabled = true);
+        return RaiseAsync(groups);
+    }
+
+    private Task DisableAll()
+    {
+        List<ScheduleGroup> groups = CurrentGroups();
+        groups.ForEach(g => g.Enabled = false);
+        return RaiseAsync(groups);
+    }
+
+    private Task AddGroup()
+    {
+        List<ScheduleGroup> groups = CurrentGroups();
+        groups.Add(
+            new ScheduleGroup
+            {
+                Label = $"Window {groups.Count + 1}",
+                Enabled = true,
+                Days = [],
+            }
+        );
+        return RaiseAsync(groups);
+    }
+
+    private Task RemoveGroup(int index)
+    {
+        List<ScheduleGroup> groups = CurrentGroups();
+        if (index >= 0 && index < groups.Count)
+        {
+            groups.RemoveAt(index);
+        }
+        return RaiseAsync(groups);
+    }
+
+    private Task ToggleEnabled(int index, ChangeEventArgs e)
+    {
+        List<ScheduleGroup> groups = CurrentGroups();
+        if (index >= 0 && index < groups.Count)
+        {
+            groups[index].Enabled = e.Value is bool b && b;
+        }
+        return RaiseAsync(groups);
+    }
+
+    private Task SetLabel(int index, ChangeEventArgs e)
+    {
+        List<ScheduleGroup> groups = CurrentGroups();
+        if (index >= 0 && index < groups.Count)
+        {
+            groups[index].Label = e.Value as string ?? string.Empty;
+        }
+        return RaiseAsync(groups);
+    }
+
+    private Task ToggleDay(int index, string day)
+    {
+        List<ScheduleGroup> groups = CurrentGroups();
+        if (index >= 0 && index < groups.Count)
+        {
+            List<string> days = groups[index].Days;
+            if (!days.Remove(day))
+            {
+                days.Add(day);
+                days.Sort(
+                    (a, c) => Array.IndexOf(Weekdays, a).CompareTo(Array.IndexOf(Weekdays, c))
+                );
+            }
+        }
+        return RaiseAsync(groups);
+    }
+
+    /// <summary>
+    /// Rebuilds the document-shaped value (List&lt;object?&gt; of
+    /// Dictionary&lt;string,object?&gt;) and raises OnFieldChanged so it serializes
+    /// back as a JSON array of objects and the next render reflects it.
+    /// </summary>
+    private Task RaiseAsync(List<ScheduleGroup> groups)
+    {
+        List<object?> value = [];
+        foreach (ScheduleGroup g in groups)
+        {
+            value.Add(
+                new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["label"] = g.Label,
+                    ["enabled"] = g.Enabled,
+                    ["days"] = g.Days.Cast<object?>().ToList(),
+                }
+            );
+        }
+
+        return OnFieldChanged.InvokeAsync(
+            new FieldChangedArgs { Key = Control.Key, Value = value }
+        );
+    }
+
+    /// <summary>Transient editor row built from the document on each read.</summary>
+    private sealed class ScheduleGroup
+    {
+        public string Label { get; set; } = string.Empty;
+        public bool Enabled { get; set; }
+        public List<string> Days { get; set; } = [];
+    }
+}

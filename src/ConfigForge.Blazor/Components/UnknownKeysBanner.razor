@@ -1,0 +1,28 @@
+@if (Keys.Count > 0)
+{
+    <div class="cf-banner cf-banner-info">
+        <button type="button" class="cf-banner-toggle" @onclick="Toggle" aria-expanded="@_expanded">
+            <span>This configuration contains @Keys.Count unrecognised field@(Keys.Count == 1 ? string.Empty : "s"). They will be preserved on save.</span>
+            <span class="cf-banner-chevron">@(_expanded ? "▲" : "▼")</span>
+        </button>
+        @if (_expanded)
+        {
+            <ul class="cf-banner-section">
+                @foreach (string key in Keys)
+                {
+                    <li><code>@key</code></li>
+                }
+            </ul>
+        }
+    </div>
+}
+
+@code {
+    /// <summary>The unrecognised keys present in the document.</summary>
+    [Parameter]
+    public IReadOnlyList<string> Keys { get; set; } = [];
+
+    private bool _expanded;
+
+    private void Toggle() => _expanded = !_expanded;
+}

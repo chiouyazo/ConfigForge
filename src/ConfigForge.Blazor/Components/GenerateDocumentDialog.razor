@@ -1,0 +1,92 @@
+@if (Visible)
+{
+    <div class="cf-modal-backdrop" @onclick="OnCancel">
+        <div class="cf-modal" role="dialog" aria-modal="true" aria-label="Generate document"
+             @onclick:stopPropagation="true">
+            <h2 class="cf-modal-title">Generate document</h2>
+
+            <fieldset class="cf-modal-options">
+                <label class="cf-radio">
+                    <input type="radio" name="cf-gen-mode" checked="@(_mode == GenerationMode.Example)"
+                           @onchange="@(() => _mode = GenerationMode.Example)" />
+                    <span>
+                        <strong>Example</strong>
+                        <small>Every field receives a valid sample value.</small>
+                    </span>
+                </label>
+                <label class="cf-radio">
+                    <input type="radio" name="cf-gen-mode" checked="@(_mode == GenerationMode.Empty)"
+                           @onchange="@(() => _mode = GenerationMode.Empty)" />
+                    <span>
+                        <strong>Empty</strong>
+                        <small>Only fields with a declared default are filled.</small>
+                    </span>
+                </label>
+            </fieldset>
+
+            @if (_mode == GenerationMode.Empty && RequiredWithoutDefault.Count > 0)
+            {
+                <div class="cf-banner cf-banner-warning" role="alert">
+                    @RequiredWithoutDefault.Count required field@(RequiredWithoutDefault.Count == 1 ? string.Empty : "s")
+                    have no default and will be left blank.
+                </div>
+            }
+
+            @if (HasUnsavedChanges)
+            {
+                <div class="cf-banner cf-banner-warning" role="alert">
+                    Generating a new document will discard your unsaved changes.
+                </div>
+            }
+
+            <div class="cf-modal-actions">
+                <button type="button" class="cf-button" @onclick="OnCancel">Cancel</button>
+                <button type="button" class="cf-button cf-button-primary" @onclick="ConfirmAsync">Generate</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    /// <summary>How a generated document should be seeded.</summary>
+    public enum GenerationMode
+    {
+        /// <summary>Populate every field with a valid sample value.</summary>
+        Example,
+
+        /// <summary>Populate only fields that declare a default.</summary>
+        Empty,
+    }
+
+    /// <summary>Whether the dialog is shown.</summary>
+    [Parameter]
+    public bool Visible { get; set; }
+
+    /// <summary>The schema being generated against, used to surface warnings.</summary>
+    [Parameter]
+    public ConfigSchema? Schema { get; set; }
+
+    /// <summary>True when the current document has unsaved edits.</summary>
+    [Parameter]
+    public bool HasUnsavedChanges { get; set; }
+
+    /// <summary>Raised with the chosen mode when the user confirms.</summary>
+    [Parameter]
+    public EventCallback<GenerationMode> OnConfirm { get; set; }
+
+    /// <summary>Raised when the user cancels or dismisses the dialog.</summary>
+    [Parameter]
+    public EventCallback OnCancel { get; set; }
+
+    private GenerationMode _mode = GenerationMode.Example;
+
+    private IReadOnlyList<string> RequiredWithoutDefault =>
+        Schema is null
+            ? []
+            : Schema.Fields.Values
+                .Where(f => f.Required && f.DefaultValue is null)
+                .Select(f => f.Key)
+                .ToArray();
+
+    private Task ConfirmAsync() => OnConfirm.InvokeAsync(_mode);
+}

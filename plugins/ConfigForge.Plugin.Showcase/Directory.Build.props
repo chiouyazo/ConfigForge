@@ -1,0 +1,8 @@
+<Project>
+  <!-- Self-contained: intentionally does not import the repo's parent Directory.Build.props. -->
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+</Project>

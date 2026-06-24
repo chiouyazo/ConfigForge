@@ -1,0 +1,79 @@
+<div class="cf-field-wrapper @(FieldError is not null ? "cf-field-has-error" : string.Empty)">
+@if (PluginComponentType is not null)
+{
+    <DynamicComponent Type="PluginComponentType" Parameters="PluginParameters" />
+}
+else
+{
+    switch (Field.ControlType)
+    {
+        case "text":
+        case "string":
+            <TextField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />
+            break;
+        case "textarea":
+        case "multiline":
+            <TextAreaField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />
+            break;
+        case "password":
+        case "secret":
+            <PasswordField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />
+            break;
+        case "number":
+        case "integer":
+            <NumberField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />
+            break;
+        case "slider":
+        case "range":
+            <SliderField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />
+            break;
+        case "checkbox":
+        case "boolean":
+            <CheckboxField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />
+            break;
+        case "checklist":
+        case "multiselect":
+            <ChecklistField Control="Descriptor" Document="Document" Disabled="Disabled" Options="Options" Loading="Loading" OnFieldChanged="OnFieldChanged" />
+            break;
+        case "select":
+        case "dropdown":
+        case "enum":
+            <SelectField Control="Descriptor" Document="Document" Disabled="Disabled" Options="Options" Loading="Loading" OnFieldChanged="OnFieldChanged" />
+            break;
+        case "date":
+            <DateField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />
+            break;
+        case "datetime":
+            <DateTimeField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />
+            break;
+        case "time":
+            <TimeField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />
+            break;
+        case "daterange":
+            <DateRangeField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />
+            break;
+        case "color":
+            <ColorPickerField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />
+            break;
+        case "tags":
+        case "taglist":
+            <TagListField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />
+            break;
+        case "filepath":
+        case "file":
+            <FilePathField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />
+            break;
+        case "code":
+        case "codeeditor":
+            <CodeEditorField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />
+            break;
+        default:
+            <UnknownFieldFallback Control="Descriptor" Document="Document" OnFieldChanged="OnFieldChanged" />
+            break;
+    }
+}
+@if (FieldError is not null)
+{
+    <p class="cf-field-error" role="alert">@FieldError</p>
+}
+</div>

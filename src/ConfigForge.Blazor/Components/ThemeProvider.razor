@@ -1,0 +1,32 @@
+<style>@(new MarkupString(VariablesCss))</style>
+
+<div class="cf-root">
+    @ChildContent
+</div>
+
+@code {
+    /// <summary>The theme whose values become CSS custom properties.</summary>
+    [Parameter]
+    [EditorRequired]
+    public ThemeDefinition Theme { get; set; } = new();
+
+    /// <summary>The content rendered inside the themed root.</summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    private string VariablesCss =>
+        $$"""
+        .cf-root {
+            --cf-primary: {{Theme.PrimaryColor}};
+            --cf-surface: {{Theme.SurfaceColor}};
+            --cf-background: {{Theme.BackgroundColor}};
+            --cf-text-primary: {{Theme.TextPrimaryColor}};
+            --cf-text-secondary: {{Theme.TextSecondaryColor}};
+            --cf-danger: {{Theme.DangerColor}};
+            --cf-success: {{Theme.SuccessColor}};
+            --cf-warning: {{Theme.WarningColor}};
+            --cf-font: {{Theme.FontFamily}};
+            --cf-radius: {{Theme.BorderRadius}};
+        }
+        """;
+}

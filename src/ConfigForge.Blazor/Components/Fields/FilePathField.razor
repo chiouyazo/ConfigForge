@@ -1,0 +1,37 @@
+@inherits FieldComponentBase
+
+<div class="cf-field">
+    <FieldLabel Control="Control" />
+    <div class="cf-input-group">
+        <input class="cf-input"
+               type="text"
+               value="@CurrentString"
+               placeholder="@Control.Placeholder"
+               disabled="@(Disabled || Control.ReadOnly)"
+               @onchange="OnInputAsync" />
+        @if (AllowBrowse)
+        {
+            <button type="button"
+                    class="cf-icon-button"
+                    disabled="@(Disabled || Control.ReadOnly)"
+                    @onclick="OnBrowseAsync">
+                Browse…
+            </button>
+        }
+    </div>
+    <FieldDescription Control="Control" />
+</div>
+
+@code {
+    /// <summary>When true, renders a Browse button that raises <see cref="OnBrowse"/>.</summary>
+    [Parameter]
+    public bool AllowBrowse { get; set; }
+
+    /// <summary>Raised when the Browse button is clicked, so a host can open a picker.</summary>
+    [Parameter]
+    public EventCallback<string> OnBrowse { get; set; }
+
+    private Task OnInputAsync(ChangeEventArgs e) => NotifyChangedAsync(e.Value as string);
+
+    private Task OnBrowseAsync() => OnBrowse.InvokeAsync(Key);
+}

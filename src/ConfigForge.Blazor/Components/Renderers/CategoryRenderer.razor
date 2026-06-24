@@ -1,0 +1,23 @@
+<div class="cf-category">
+    @foreach (UiElement child in Element.Elements)
+    {
+        <UiElementRenderer Element="child" Schema="Schema" Document="Document" />
+    }
+</div>
+
+@code {
+    /// <summary>The category element whose children are rendered.</summary>
+    [Parameter]
+    [EditorRequired]
+    public UiElement Element { get; set; } = new();
+
+    /// <summary>The schema providing field definitions.</summary>
+    [Parameter]
+    [EditorRequired]
+    public ConfigSchema Schema { get; set; } = new();
+
+    /// <summary>The live document.</summary>
+    [Parameter]
+    [EditorRequired]
+    public ConfigDocument Document { get; set; } = new();
+}

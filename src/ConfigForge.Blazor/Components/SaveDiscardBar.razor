@@ -1,0 +1,55 @@
+@if (Visible)
+{
+    <div class="cf-save-bar">
+        <span class="cf-save-status">
+            @if (!IsValid)
+            {
+                <span class="cf-save-invalid">Resolve validation issues before saving.</span>
+            }
+            else if (HasChanges)
+            {
+                <span class="cf-save-dirty">You have unsaved changes.</span>
+            }
+            else
+            {
+                <span>No changes.</span>
+            }
+        </span>
+        <div class="cf-save-actions">
+            <button type="button"
+                    class="cf-button"
+                    disabled="@(!HasChanges)"
+                    @onclick="OnDiscard">
+                Discard
+            </button>
+            <button type="button"
+                    class="cf-button cf-button-primary"
+                    disabled="@(!CanSave)"
+                    @onclick="OnSave">
+                Save
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    /// <summary>True when the document differs from the saved baseline.</summary>
+    [Parameter]
+    public bool HasChanges { get; set; }
+
+    /// <summary>True when the document currently passes validation.</summary>
+    [Parameter]
+    public bool IsValid { get; set; } = true;
+
+    /// <summary>Raised when the user confirms a save.</summary>
+    [Parameter]
+    public EventCallback OnSave { get; set; }
+
+    /// <summary>Raised when the user discards their changes.</summary>
+    [Parameter]
+    public EventCallback OnDiscard { get; set; }
+
+    private bool Visible => HasChanges || !IsValid;
+
+    private bool CanSave => HasChanges && IsValid;
+}

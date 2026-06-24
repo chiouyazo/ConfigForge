@@ -1,0 +1,172 @@
+@page "/"
+@page "/{CategorySlug}"
+@using System.Text.RegularExpressions
+@using ConfigForge.Core.Documents
+@using ConfigForge.Core.Schema
+@implements IDisposable
+@inject IJsonFormsSchemaParser Parser
+@inject IConfigDocumentGenerator Generator
+@inject IConfigDocumentEngine Engine
+@inject EditingSession Session
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<div class="demo-layout">
+    <div class="demo-editor">
+        <div class="demo-schema-switch">
+            <label>Schema:&nbsp;</label>
+            <select value="@_active" @onchange="OnSchemaChanged">
+                <option value="@SchemaChoice.Showcase">Showcase (all controls)</option>
+                <option value="@SchemaChoice.Example">Example Product</option>
+            </select>
+        </div>
+        <ConfigForgeShell @key="_active"
+                          Schema="_schema"
+                          Document="_doc"
+                          Mode="ConfigForgeMode.Open"
+                          ShowGenerateButton="false"
+                          ActiveCategoryLabel="@LabelFromSlug(CategorySlug)"
+                          OnCategoryChanged="OnCategoryChangedAsync" />
+    </div>
+
+    @if (_panelOpen)
+    {
+        <div class="demo-splitter" title="Drag to resize"></div>
+        <aside class="demo-panel">
+            <div class="demo-panel-head">
+                <div class="demo-tabs">
+                    <button class="demo-tab @(_view == View.Config ? "active" : "")"
+                            @onclick="() => _view = View.Config">Config JSON</button>
+                    <button class="demo-tab @(_view == View.Schema ? "active" : "")"
+                            @onclick="() => _view = View.Schema">Schema</button>
+                </div>
+                <button class="demo-close" title="Hide panel" @onclick="TogglePanel">✕</button>
+            </div>
+
+            <div class="demo-actions">
+                <button @onclick="GenerateEmpty">Generate empty config</button>
+                <button @onclick="GenerateExample">Generate example</button>
+                <button class="demo-copy" @onclick="CopyAsync">@(_copied ? "Copied ✓" : "Copy")</button>
+            </div>
+
+            <pre class="demo-code"><code>@CurrentText</code></pre>
+        </aside>
+    }
+    else
+    {
+        <button class="demo-open" title="Show JSON / schema" @onclick="TogglePanel">
+            <span class="demo-open-icon">{ }</span> JSON
+        </button>
+    }
+</div>
+
+@code {
+    private enum View { Config, Schema }
+
+    private enum SchemaChoice { Showcase, Example }
+
+    private ConfigSchema _schema = new();
+    private ConfigDocument? _doc;
+    private bool _panelOpen = true;
+    private View _view = View.Config;
+    private bool _copied;
+    private SchemaChoice _active = SchemaChoice.Showcase;
+
+    /// <summary>Category slug from the route, enabling deep links like /advanced.</summary>
+    [Parameter]
+    public string? CategorySlug { get; set; }
+
+    protected override void OnInitialized()
+    {
+        LoadSchema(_active);
+        Session.StateChanged += OnSessionChanged;
+    }
+
+    private static string Slugify(string label) =>
+        Regex.Replace(label.ToLowerInvariant(), "[^a-z0-9]+", "-").Trim('-');
+
+    private string? LabelFromSlug(string? slug)
+    {
+        if (string.IsNullOrEmpty(slug))
+        {
+            return null;
+        }
+
+        foreach (CategoryElement category in _schema.Categories)
+        {
+            if (string.Equals(Slugify(category.Label), slug, StringComparison.OrdinalIgnoreCase))
+            {
+                return category.Label;
+            }
+        }
+
+        return null;
+    }
+
+    private Task OnCategoryChangedAsync(string label)
+    {
+        Nav.NavigateTo($"/{Slugify(label)}", forceLoad: false);
+        return Task.CompletedTask;
+    }
+
+    private static string SchemaJson(SchemaChoice choice) =>
+        choice == SchemaChoice.Example ? ExampleSchema.Json : ShowcaseSchema.Json;
+
+    private const string CatFieldKey = "cat_image";
+
+    private static string NewCatUrl() => $"https://cataas.com/cat?ts={DateTime.UtcNow.Ticks}";
+
+    private void LoadSchema(SchemaChoice choice)
+    {
+        _schema = Parser.Parse(SchemaJson(choice));
+        _doc = Generator.GenerateExample(_schema);
+
+        if (_schema.Fields.ContainsKey(CatFieldKey))
+        {
+            _doc[CatFieldKey] = NewCatUrl();
+        }
+    }
+
+    private void OnSchemaChanged(ChangeEventArgs e)
+    {
+        if (Enum.TryParse(e.Value as string, out SchemaChoice choice) && choice != _active)
+        {
+            _active = choice;
+            LoadSchema(choice);
+            Nav.NavigateTo("/", forceLoad: false);
+        }
+    }
+
+    private string CurrentText =>
+        _view == View.Schema
+            ? SchemaJson(_active)
+            : Engine.Serialize(Session.Schema is null ? _doc! : Session.Document);
+
+    private void OnSessionChanged(object? sender, EventArgs e)
+    {
+        _copied = false;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void TogglePanel() => _panelOpen = !_panelOpen;
+
+    private void GenerateEmpty() => Session.ReplaceDocument(Generator.GenerateEmpty(ActiveSchema));
+
+    private void GenerateExample() => Session.ReplaceDocument(Generator.GenerateExample(ActiveSchema));
+
+    private ConfigSchema ActiveSchema => Session.Schema ?? _schema;
+
+    private async Task CopyAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", CurrentText);
+            _copied = true;
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    public void Dispose() => Session.StateChanged -= OnSessionChanged;
+}

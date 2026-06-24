@@ -1,0 +1,40 @@
+@inherits FieldComponentBase
+
+<div class="cf-field">
+    <FieldLabel Control="Control" />
+    <div class="cf-input-group">
+        <input class="cf-input"
+               type="number"
+               value="@CurrentString"
+               min="@_min"
+               max="@_max"
+               step="@_step"
+               placeholder="@Control.Placeholder"
+               disabled="@(Disabled || Control.ReadOnly)"
+               @onchange="OnInputAsync" />
+        @if (!string.IsNullOrEmpty(Control.Unit))
+        {
+            <span class="cf-unit">@Control.Unit</span>
+        }
+    </div>
+    <FieldDescription Control="Control" />
+</div>
+
+@code {
+    private string? _min;
+    private string? _max;
+    private string? _step;
+
+    protected override void OnParametersSet()
+    {
+        _min = OptionString("minimum");
+        _max = OptionString("maximum");
+        _step = OptionString("step") ?? OptionString("multipleOf");
+    }
+
+    private Task OnInputAsync(ChangeEventArgs e)
+    {
+        double? parsed = ParseDouble(e.Value as string);
+        return NotifyChangedAsync(parsed);
+    }
+}

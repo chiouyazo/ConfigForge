@@ -1,0 +1,29 @@
+@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment Env
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ConfigForge Demo</title>
+    <base href="/" />
+    <link rel="stylesheet" href="configforge.css" />
+    @((MarkupString)$"<style>{CssText}</style>")
+    <HeadOutlet />
+</head>
+
+<body>
+    <Routes @rendermode="InteractiveServer" />
+    <script src="_framework/blazor.web.js"></script>
+    <script src="demo.js"></script>
+</body>
+
+</html>
+
+@code {
+    private static string? _css;
+
+    private string CssText =>
+        _css ??= System.IO.File.ReadAllText(System.IO.Path.Combine(Env.WebRootPath, "configforge.css"));
+}

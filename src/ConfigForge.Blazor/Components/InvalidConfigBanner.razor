@@ -1,0 +1,46 @@
+@if (HasProblems)
+{
+    <div class="cf-banner cf-banner-danger" role="alert">
+        <strong class="cf-banner-title">This configuration is not valid.</strong>
+        @if (!string.IsNullOrEmpty(ParseResult!.JsonError))
+        {
+            <p class="cf-banner-line">The document could not be parsed: @ParseResult.JsonError</p>
+        }
+        @if (ParseResult.MissingRequiredKeys.Count > 0)
+        {
+            <div class="cf-banner-section">
+                <span>Missing required fields:</span>
+                <ul>
+                    @foreach (string key in ParseResult.MissingRequiredKeys)
+                    {
+                        <li>@key</li>
+                    }
+                </ul>
+            </div>
+        }
+        @if (ParseResult.InvalidValues.Count > 0)
+        {
+            <div class="cf-banner-section">
+                <span>Invalid values:</span>
+                <ul>
+                    @foreach (ValidationError error in ParseResult.InvalidValues)
+                    {
+                        <li><code>@error.Key</code>: @error.Message</li>
+                    }
+                </ul>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    /// <summary>The parse result whose problems are summarised.</summary>
+    [Parameter]
+    public ConfigDocumentParseResult? ParseResult { get; set; }
+
+    private bool HasProblems =>
+        ParseResult is not null
+        && (!string.IsNullOrEmpty(ParseResult.JsonError)
+            || ParseResult.MissingRequiredKeys.Count > 0
+            || ParseResult.InvalidValues.Count > 0);
+}

@@ -1,0 +1,15 @@
+@inherits FieldComponentBase
+
+<div class="cf-field">
+    <FieldLabel Control="Control" />
+    <input class="cf-input"
+           type="datetime-local"
+           value="@CurrentString"
+           disabled="@(Disabled || Control.ReadOnly)"
+           @onchange="OnInputAsync" />
+    <FieldDescription Control="Control" />
+</div>
+
+@code {
+    private Task OnInputAsync(ChangeEventArgs e) => NotifyChangedAsync(e.Value as string);
+}

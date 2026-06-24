@@ -1,0 +1,20 @@
+@inherits FieldComponentBase
+
+<div class="cf-field">
+    <FieldLabel Control="Control" />
+    <div class="cf-input-group">
+        <input class="cf-color"
+               type="color"
+               value="@ColorValue"
+               disabled="@(Disabled || Control.ReadOnly)"
+               @onchange="OnInputAsync" />
+        <span class="cf-color-value">@ColorValue</span>
+    </div>
+    <FieldDescription Control="Control" />
+</div>
+
+@code {
+    private string ColorValue => CurrentString.Length > 0 ? CurrentString : "#000000";
+
+    private Task OnInputAsync(ChangeEventArgs e) => NotifyChangedAsync(e.Value as string);
+}

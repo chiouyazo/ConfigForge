@@ -1,0 +1,321 @@
+namespace ConfigForge.Sample.Web;
+
+/// <summary>
+/// A comprehensive showcase schema exercising every built-in control type plus
+/// the custom <c>cat.image</c> control. Control types are a mix of inferred (from
+/// JSON Schema type/format/constraints) and explicit (set via x-cf.controls[key].type).
+/// </summary>
+public static class ShowcaseSchema
+{
+    public const string Json = """
+        {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "service_name": {
+                "type": "string",
+                "title": "Service name",
+                "description": "A human-readable name for this configuration profile."
+              },
+              "summary": {
+                "type": "string",
+                "title": "Summary",
+                "description": "A longer multi-line description of what this service does."
+              },
+              "api_token": {
+                "type": "string",
+                "title": "API token",
+                "description": "Secret credential used to authenticate with the upstream service."
+              },
+              "max_retries": {
+                "type": "integer",
+                "title": "Max retries",
+                "description": "How many times to retry a failed request. Lower bound only, so this renders as a number input.",
+                "minimum": 0,
+                "default": 3
+              },
+              "timeout_seconds": {
+                "type": "integer",
+                "title": "Timeout",
+                "description": "Request timeout. Bounded on both ends, so this is inferred as a slider.",
+                "minimum": 1,
+                "maximum": 120,
+                "default": 30
+              },
+              "enabled": {
+                "type": "boolean",
+                "title": "Enabled",
+                "description": "Master switch. When off, the target channel below is disabled by a rule.",
+                "default": true
+              },
+              "features": {
+                "type": "array",
+                "title": "Enabled features",
+                "description": "Pick any number of features. Inferred as a checklist from an array of enum strings.",
+                "items": {
+                  "type": "string",
+                  "enum": ["logging", "metrics", "tracing", "alerts"]
+                }
+              },
+              "log_level": {
+                "type": "string",
+                "title": "Log level",
+                "description": "A static enum, inferred as a select.",
+                "enum": ["trace", "debug", "info", "warn", "error"],
+                "default": "info"
+              },
+              "target_channel": {
+                "type": "string",
+                "title": "Target channel",
+                "description": "Loader-driven select. Options come from the example.loadChannels loader."
+              },
+              "start_date": {
+                "type": "string",
+                "title": "Start date",
+                "description": "A calendar date. Inferred as a date control from format: date.",
+                "format": "date"
+              },
+              "run_at": {
+                "type": "string",
+                "title": "Run at",
+                "description": "A full timestamp. Inferred as a datetime control from format: date-time.",
+                "format": "date-time"
+              },
+              "quiet_hours_start": {
+                "type": "string",
+                "title": "Quiet hours start",
+                "description": "A time of day. Inferred as a time control from format: time.",
+                "format": "time"
+              },
+              "active_window": {
+                "type": "string",
+                "title": "Active window",
+                "description": "A date range. Explicit x-cf type: daterange (not inferred)."
+              },
+              "accent_color": {
+                "type": "string",
+                "title": "Accent color",
+                "description": "Theme accent. Inferred as a color control from format: color.",
+                "format": "color",
+                "default": "#3b82f6"
+              },
+              "tags": {
+                "type": "array",
+                "title": "Tags",
+                "description": "Free-form tags. Inferred as a taglist from an array of plain strings.",
+                "items": { "type": "string" }
+              },
+              "config_path": {
+                "type": "string",
+                "title": "Config file path",
+                "description": "Filesystem path. Explicit x-cf type: filepath (not inferred)."
+              },
+              "startup_script": {
+                "type": "string",
+                "title": "Startup script",
+                "description": "A snippet of code. Explicit x-cf type: code (not inferred)."
+              },
+              "cat_image": {
+                "type": "string",
+                "title": "Cat of the day",
+                "description": "A custom plugin control (cat.image) that renders an <img> from cataas.com.",
+                "default": "https://cataas.com/cat"
+              },
+              "maintenance_windows": {
+                "type": "array",
+                "title": "Maintenance windows",
+                "description": "A complex composite plugin control (schedule.weekly): an array of weekly windows, each with a label, an enabled toggle, and a Mon-Sun day picker.",
+                "items": { "type": "object" },
+                "default": [
+                  { "label": "Weeknight patching", "enabled": true, "days": ["Mon", "Tue", "Wed", "Thu"] },
+                  { "label": "Weekend backups", "enabled": false, "days": ["Sat", "Sun"] }
+                ]
+              }
+            },
+            "required": ["service_name"]
+          },
+          "uiSchema": {
+            "type": "Categorization",
+            "elements": [
+              {
+                "type": "Category",
+                "label": "Text & Numbers",
+                "elements": [
+                  { "type": "Control", "scope": "#/properties/service_name" },
+                  { "type": "Control", "scope": "#/properties/summary" },
+                  { "type": "Control", "scope": "#/properties/api_token" },
+                  {
+                    "type": "HorizontalLayout",
+                    "elements": [
+                      { "type": "Control", "scope": "#/properties/max_retries" },
+                      { "type": "Control", "scope": "#/properties/timeout_seconds" }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "Category",
+                "label": "Choices",
+                "elements": [
+                  { "type": "Control", "scope": "#/properties/enabled" },
+                  { "type": "Control", "scope": "#/properties/features" },
+                  { "type": "Control", "scope": "#/properties/log_level" },
+                  {
+                    "type": "Control",
+                    "scope": "#/properties/target_channel",
+                    "rule": {
+                      "effect": "DISABLE",
+                      "condition": {
+                        "scope": "#/properties/enabled",
+                        "schema": { "const": false }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "Category",
+                "label": "Dates & Time",
+                "elements": [
+                  {
+                    "type": "Group",
+                    "label": "Schedule",
+                    "elements": [
+                      { "type": "Control", "scope": "#/properties/start_date" },
+                      { "type": "Control", "scope": "#/properties/run_at" },
+                      { "type": "Control", "scope": "#/properties/quiet_hours_start" },
+                      { "type": "Control", "scope": "#/properties/active_window" },
+                      { "type": "Control", "scope": "#/properties/maintenance_windows" }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "Category",
+                "label": "Advanced",
+                "elements": [
+                  { "type": "Control", "scope": "#/properties/accent_color" },
+                  { "type": "Control", "scope": "#/properties/tags" },
+                  { "type": "Control", "scope": "#/properties/config_path" },
+                  { "type": "Control", "scope": "#/properties/startup_script" }
+                ]
+              },
+              {
+                "type": "Category",
+                "label": "Cat Gallery",
+                "elements": [
+                  { "type": "Control", "scope": "#/properties/cat_image" }
+                ]
+              }
+            ]
+          },
+          "x-cf": {
+            "id": "showcase",
+            "name": "Control Showcase",
+            "version": "1.0.0",
+            "controls": {
+              "service_name": {
+                "type": "text",
+                "placeholder": "my-awesome-service",
+                "tooltip": "The display name for this profile. Required."
+              },
+              "summary": {
+                "type": "textarea",
+                "placeholder": "Describe what this service does...",
+                "tooltip": "A multi-line free-text area."
+              },
+              "api_token": {
+                "type": "password",
+                "placeholder": "••••••••",
+                "tooltip": "Stored securely; masked on screen."
+              },
+              "max_retries": {
+                "type": "number",
+                "unit": "attempts",
+                "tooltip": "Number of retry attempts. Has a minimum but no maximum, so it stays a number input."
+              },
+              "timeout_seconds": {
+                "type": "slider",
+                "unit": "seconds",
+                "tooltip": "Drag the slider between 1 and 120 seconds."
+              },
+              "enabled": {
+                "tooltip": "Toggle the whole service on or off."
+              },
+              "features": {
+                "tooltip": "Tick the features you want enabled."
+              },
+              "log_level": {
+                "tooltip": "Choose how verbose logging should be."
+              },
+              "target_channel": {
+                "type": "select",
+                "loaderId": "example.loadChannels",
+                "tooltip": "Loaded at runtime from the example plugin. Disabled while the service is off."
+              },
+              "start_date": {
+                "tooltip": "When the service should start running."
+              },
+              "run_at": {
+                "tooltip": "Exact timestamp of the next run."
+              },
+              "quiet_hours_start": {
+                "tooltip": "Time of day when notifications go silent."
+              },
+              "active_window": {
+                "type": "daterange",
+                "tooltip": "The date span during which the service is active."
+              },
+              "accent_color": {
+                "tooltip": "Pick a theme accent color."
+              },
+              "tags": {
+                "placeholder": "press Enter to add",
+                "tooltip": "Arbitrary labels for organising profiles."
+              },
+              "config_path": {
+                "type": "filepath",
+                "placeholder": "/etc/myservice/config.yaml",
+                "tooltip": "Absolute path to the config file on disk."
+              },
+              "startup_script": {
+                "type": "code",
+                "placeholder": "#!/bin/sh\necho hello",
+                "tooltip": "A shell snippet run on startup."
+              },
+              "cat_image": {
+                "type": "cat.image",
+                "tooltip": "A fresh cat, served by the external Showcase plugin via cataas.com."
+              },
+              "maintenance_windows": {
+                "type": "schedule.weekly",
+                "tooltip": "Composite control from the external Showcase plugin. Each row is a weekly window with a label, an enabled toggle and a Mon-Sun day picker; use Enable all / Disable all / Add group to manage them."
+              }
+            },
+            "actions": [
+              {
+                "actionId": "cat.next",
+                "label": "Show another cat",
+                "icon": "refresh",
+                "variant": "primary",
+                "placement": { "category": "Cat Gallery", "position": "bottom" }
+              },
+              {
+                "actionId": "example.testConnection",
+                "label": "Test Connection",
+                "icon": "plug",
+                "variant": "secondary",
+                "placement": { "category": "Text & Numbers", "position": "bottom" }
+              }
+            ],
+            "categories": {
+              "Text & Numbers": { "icon": "text", "description": "Text inputs and numeric controls." },
+              "Choices": { "icon": "list", "description": "Toggles, checklists and select fields." },
+              "Dates & Time": { "icon": "calendar", "description": "Date, time and range pickers." },
+              "Advanced": { "icon": "gear", "description": "Color, tags, paths and code." },
+              "Cat Gallery": { "icon": "image", "description": "A custom plugin control showing cats." }
+            }
+          }
+        }
+        """;
+}

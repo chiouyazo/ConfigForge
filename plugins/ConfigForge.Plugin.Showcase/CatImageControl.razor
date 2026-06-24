@@ -1,0 +1,81 @@
+@implements ConfigForge.Abstractions.IConfigControl
+@using ConfigForge.Abstractions
+@using Microsoft.AspNetCore.Components
+
+<div class="cf-field cfs-cat-field">
+    @if (!string.IsNullOrEmpty(Control.Title))
+    {
+        <label class="cf-label" title="@Control.Tooltip">@Control.Title</label>
+    }
+
+    <div class="cfs-cat-frame">
+        @if (!string.IsNullOrEmpty(ImageUrl))
+        {
+            <img class="cfs-cat-img" src="@ImageUrl" alt="A random cat from cataas.com" />
+        }
+        else
+        {
+            <div class="cfs-cat-placeholder">
+                <span class="cfs-cat-emoji">🐱</span>
+                <span>No cat yet. Press &ldquo;Show another cat&rdquo; to fetch one.</span>
+            </div>
+        }
+    </div>
+
+    @if (!string.IsNullOrEmpty(Control.Description))
+    {
+        <p class="cf-description">@Control.Description</p>
+    }
+</div>
+
+<style>
+    .cfs-cat-field .cfs-cat-frame {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        max-width: 360px;
+        min-height: 220px;
+        padding: 8px;
+        border: 1px solid var(--cf-border, #d0d0d8);
+        border-radius: 12px;
+        background: var(--cf-surface-muted, #f6f6f9);
+        overflow: hidden;
+    }
+
+    .cfs-cat-field .cfs-cat-img {
+        max-width: 100%;
+        max-height: 320px;
+        border-radius: 8px;
+        display: block;
+    }
+
+    .cfs-cat-field .cfs-cat-placeholder {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        color: var(--cf-text-muted, #6b6b76);
+        font-size: 0.9rem;
+        text-align: center;
+    }
+
+    .cfs-cat-field .cfs-cat-emoji {
+        font-size: 2.5rem;
+    }
+</style>
+
+@code {
+    /// <inheritdoc />
+    [Parameter]
+    public ControlDescriptor Control { get; set; } = new();
+
+    /// <inheritdoc />
+    [Parameter]
+    public ConfigDocument Document { get; set; } = new();
+
+    /// <inheritdoc />
+    [Parameter]
+    public EventCallback<FieldChangedArgs> OnFieldChanged { get; set; }
+
+    private string ImageUrl => Document.GetString(Control.Key);
+}

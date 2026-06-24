@@ -1,0 +1,83 @@
+@implements IDisposable
+
+<div class="cf-canvas">
+    @if (JsonError is not null)
+    {
+        <div class="cf-raw-error">
+            <p class="cf-raw-error-message" role="alert">@JsonError</p>
+            <label class="cf-label" for="cf-raw-editor">Document JSON</label>
+            <textarea id="cf-raw-editor"
+                      class="cf-input cf-textarea cf-code cf-raw-editor"
+                      rows="18"
+                      value="@_rawText"
+                      @oninput="OnRawInput"></textarea>
+            <div class="cf-raw-error-actions">
+                <button type="button" class="cf-button cf-button-primary" @onclick="ReParse">
+                    Re-parse
+                </button>
+            </div>
+        </div>
+    }
+    else
+    {
+        <InvalidConfigBanner ParseResult="Session.ParseResult" />
+        <UnknownKeysBanner Keys="UnknownKeys" />
+
+        @if (ActiveCategory is null)
+        {
+            <p class="cf-empty">No category is selected.</p>
+        }
+        else
+        {
+            @if (!string.IsNullOrEmpty(ActiveCategory.Description))
+            {
+                <p class="cf-category-description">@ActiveCategory.Description</p>
+            }
+            @foreach (UiElement element in ActiveCategory.Elements)
+            {
+                <UiElementRenderer Element="element" Schema="Schema" Document="Session.Document" />
+            }
+        }
+    }
+</div>
+
+@code {
+    [Inject]
+    private EditingSession Session { get; set; } = default!;
+
+    [Inject]
+    private IConfigDocumentEngine DocumentEngine { get; set; } = default!;
+
+    private string _rawText = string.Empty;
+
+    private string? JsonError => Session.ParseResult?.JsonError;
+
+    protected override void OnInitialized()
+    {
+        _rawText = Session.RawJson ?? string.Empty;
+        Session.StateChanged += OnSessionChanged;
+    }
+
+    private void OnSessionChanged(object? sender, EventArgs e) => InvokeAsync(StateHasChanged);
+
+    private void OnRawInput(ChangeEventArgs e) => _rawText = e.Value as string ?? string.Empty;
+
+    private void ReParse()
+    {
+        Session.SetRawJson(_rawText);
+        ConfigDocumentParseResult result = DocumentEngine.Parse(_rawText, Schema);
+        Session.ReplaceDocument(result.Document, result);
+    }
+
+    /// <inheritdoc />
+    public void Dispose() => Session.StateChanged -= OnSessionChanged;
+
+    private ConfigSchema Schema => Session.Schema ?? new ConfigSchema();
+
+    private CategoryElement? ActiveCategory =>
+        Schema.Categories.Count > Session.ActiveCategoryIndex && Session.ActiveCategoryIndex >= 0
+            ? Schema.Categories[Session.ActiveCategoryIndex]
+            : null;
+
+    private IReadOnlyList<string> UnknownKeys => Session.ParseResult?.UnknownKeys ?? [];
+}

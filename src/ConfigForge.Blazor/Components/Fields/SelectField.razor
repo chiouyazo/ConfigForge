@@ -1,0 +1,42 @@
+@inherits FieldComponentBase
+
+<div class="cf-field">
+    <FieldLabel Control="Control" />
+    @if (Loading)
+    {
+        <div class="cf-loading" role="status">Loading options…</div>
+    }
+    else
+    {
+        <select class="cf-input cf-select"
+                value="@(HasMatchingOption ? CurrentString : string.Empty)"
+                disabled="@(Disabled || Control.ReadOnly)"
+                @onchange="OnInputAsync">
+            <option value="" selected="@(!HasMatchingOption)">@PlaceholderText</option>
+            @foreach (SelectOption option in Options)
+            {
+                <option value="@option.Value" selected="@(option.Value == CurrentString)">@option.Label</option>
+            }
+        </select>
+    }
+    <FieldDescription Control="Control" />
+</div>
+
+@code {
+    /// <summary>The selectable options, whether static or loader-supplied.</summary>
+    [Parameter]
+    public IReadOnlyList<SelectOption> Options { get; set; } = [];
+
+    /// <summary>True while loader-driven options are being fetched.</summary>
+    [Parameter]
+    public bool Loading { get; set; }
+
+    private string PlaceholderText =>
+        string.IsNullOrEmpty(Control.Placeholder) ? "Select…" : Control.Placeholder;
+
+    private bool HasMatchingOption =>
+        !string.IsNullOrEmpty(CurrentString)
+        && Options.Any(o => string.Equals(o.Value, CurrentString, StringComparison.Ordinal));
+
+    private Task OnInputAsync(ChangeEventArgs e) => NotifyChangedAsync(e.Value as string);
+}

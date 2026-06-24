@@ -1,0 +1,67 @@
+<nav class="cf-sidebar-nav" aria-label="Configuration categories">
+    @if (Logo is not null && Logo.Position == LogoPosition.SidebarTop)
+    {
+        <CfLogo Logo="Logo" />
+    }
+
+    <input class="cf-input cf-sidebar-search"
+           type="search"
+           placeholder="Filter categories…"
+           value="@_filter"
+           aria-label="Filter categories"
+           @oninput="OnFilterChanged" />
+
+    <ul class="cf-category-list">
+        @for (int i = 0; i < Categories.Count; i++)
+        {
+            int index = i;
+            CategoryElement category = Categories[index];
+            if (Matches(category))
+            {
+                <li>
+                    <button type="button"
+                            class="cf-category-item @(index == ActiveIndex ? "cf-active" : string.Empty)"
+                            @onclick="@(() => OnSelect.InvokeAsync(index))">
+                        @if (!string.IsNullOrEmpty(category.Icon))
+                        {
+                            <span class="cf-category-icon cf-icon-@category.Icon" aria-hidden="true"></span>
+                        }
+                        <span class="cf-category-label">@category.Label</span>
+                    </button>
+                </li>
+            }
+        }
+    </ul>
+
+    @if (Logo is not null && Logo.Position == LogoPosition.SidebarBottom)
+    {
+        <CfLogo Logo="Logo" />
+    }
+</nav>
+
+@code {
+    /// <summary>The categories to list.</summary>
+    [Parameter]
+    [EditorRequired]
+    public IReadOnlyList<CategoryElement> Categories { get; set; } = [];
+
+    /// <summary>The index of the active category.</summary>
+    [Parameter]
+    public int ActiveIndex { get; set; }
+
+    /// <summary>Raised with the index of a category when the user selects it.</summary>
+    [Parameter]
+    public EventCallback<int> OnSelect { get; set; }
+
+    /// <summary>An optional logo to render in the sidebar.</summary>
+    [Parameter]
+    public LogoDefinition? Logo { get; set; }
+
+    private string _filter = string.Empty;
+
+    private void OnFilterChanged(ChangeEventArgs e) => _filter = e.Value as string ?? string.Empty;
+
+    private bool Matches(CategoryElement category) =>
+        _filter.Length == 0
+        || category.Label.Contains(_filter, StringComparison.OrdinalIgnoreCase);
+}

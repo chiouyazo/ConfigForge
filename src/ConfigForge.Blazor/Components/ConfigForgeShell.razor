@@ -1,0 +1,40 @@
+@implements IDisposable
+
+<ThemeProvider Theme="Theme">
+    <div class="cf-shell">
+        <AppHeader Title="@HeaderTitle"
+                   Subtitle="@HeaderSubtitle"
+                   Logo="Theme.Logo"
+                   Mode="Mode"
+                   ShowGenerateButton="ShowGenerateButton"
+                   OnGenerate="ShowGenerateDialog" />
+
+        <div class="cf-body">
+            <aside class="cf-sidebar">
+                <SidebarNav Categories="Categories"
+                            ActiveIndex="Session.ActiveCategoryIndex"
+                            Logo="Theme.Logo"
+                            OnSelect="OnSelectCategory" />
+            </aside>
+
+            <main class="cf-main">
+                <ValidationSummary ParseResult="Session.ParseResult" />
+                <ConfigCanvas />
+                <ActionButtonBar />
+            </main>
+        </div>
+
+        <SaveDiscardBar HasChanges="Session.IsDirty"
+                        IsValid="IsValid"
+                        OnSave="SaveAsync"
+                        OnDiscard="Discard" />
+
+        <ToastContainer />
+
+        <GenerateDocumentDialog Visible="_showGenerateDialog"
+                                Schema="Session.Schema"
+                                HasUnsavedChanges="Session.IsDirty"
+                                OnConfirm="OnGenerateConfirmedAsync"
+                                OnCancel="HideGenerateDialog" />
+    </div>
+</ThemeProvider>

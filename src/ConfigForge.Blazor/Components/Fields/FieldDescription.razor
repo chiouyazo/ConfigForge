@@ -1,0 +1,11 @@
+@if (!string.IsNullOrEmpty(Control.Description))
+{
+    <p class="cf-description">@Control.Description</p>
+}
+
+@code {
+    /// <summary>The control whose description is rendered.</summary>
+    [Parameter]
+    [EditorRequired]
+    public ControlDescriptor Control { get; set; } = new();
+}

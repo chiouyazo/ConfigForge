@@ -1,0 +1,322 @@
+/*
+ * ConfigForge component styles. Every rule references only the CSS custom
+ * properties emitted by ThemeProvider onto .cf-root, so the entire surface
+ * re-themes from a single ThemeDefinition.
+ */
+
+.cf-root {
+    color: var(--cf-text-primary);
+    background: var(--cf-background);
+    font-family: var(--cf-font);
+}
+
+.cf-shell {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+}
+
+/* Header */
+.cf-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1.25rem;
+    background: var(--cf-surface);
+    border-bottom: 1px solid var(--cf-text-secondary);
+}
+
+.cf-header-slot { display: flex; align-items: center; gap: 0.75rem; }
+.cf-header-left { flex: 1; }
+.cf-header-center { flex: 1; justify-content: center; }
+.cf-header-right { flex: 1; justify-content: flex-end; }
+.cf-title { font-size: 1.15rem; margin: 0; color: var(--cf-text-primary); }
+.cf-subtitle { font-size: 0.8rem; margin: 0; color: var(--cf-text-secondary); }
+.cf-logo { max-height: 2.25rem; max-width: 12rem; }
+
+/* Body layout */
+.cf-body { display: flex; flex: 1; min-height: 0; }
+.cf-sidebar {
+    width: 16rem;
+    background: var(--cf-surface);
+    border-right: 1px solid var(--cf-background);
+    padding: 0.75rem;
+    overflow-y: auto;
+}
+.cf-main { flex: 1; padding: 1.25rem; overflow-y: auto; }
+
+/* Sidebar navigation */
+.cf-sidebar-nav { display: flex; flex-direction: column; gap: 0.75rem; }
+.cf-sidebar-search { width: 100%; }
+.cf-category-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.125rem; }
+.cf-category-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.5rem 0.625rem;
+    border: none;
+    border-radius: var(--cf-radius);
+    background: transparent;
+    color: var(--cf-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+.cf-category-item:hover { background: var(--cf-background); }
+.cf-category-item.cf-active { background: var(--cf-primary); color: var(--cf-surface); }
+.cf-category-icon { width: 1.25rem; text-align: center; }
+
+/* Fields */
+.cf-field { margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.35rem; }
+.cf-label { font-weight: 600; font-size: 0.85rem; color: var(--cf-text-primary); }
+.cf-required { color: var(--cf-danger); margin-left: 0.15rem; }
+.cf-description { margin: 0; font-size: 0.8rem; color: var(--cf-text-secondary); }
+.cf-standalone-label { font-weight: 600; margin: 0.5rem 0; color: var(--cf-text-primary); }
+
+.cf-input,
+.cf-select,
+.cf-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.5rem 0.625rem;
+    border: 1px solid var(--cf-text-secondary);
+    border-radius: var(--cf-radius);
+    background: var(--cf-surface);
+    color: var(--cf-text-primary);
+    font: inherit;
+}
+.cf-input:focus,
+.cf-select:focus,
+.cf-textarea:focus { outline: 2px solid var(--cf-primary); outline-offset: 0; }
+.cf-input:disabled { opacity: 0.6; cursor: not-allowed; }
+.cf-textarea { resize: vertical; }
+.cf-code { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
+
+.cf-input-group { display: flex; align-items: center; gap: 0.5rem; }
+.cf-unit, .cf-slider-value, .cf-color-value { color: var(--cf-text-secondary); font-size: 0.85rem; }
+.cf-icon-button {
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--cf-text-secondary);
+    border-radius: var(--cf-radius);
+    background: var(--cf-surface);
+    color: var(--cf-text-primary);
+    cursor: pointer;
+    font: inherit;
+}
+.cf-slider, .cf-color { flex: 1; }
+
+.cf-checkbox { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
+.cf-checklist { display: flex; flex-direction: column; gap: 0.35rem; }
+
+/* Password strength */
+.cf-strength { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; }
+.cf-strength-bar { height: 0.35rem; width: 6rem; border-radius: var(--cf-radius); background: var(--cf-background); }
+.cf-strength-weak .cf-strength-bar { background: var(--cf-danger); width: 2rem; }
+.cf-strength-medium .cf-strength-bar { background: var(--cf-warning); width: 4rem; }
+.cf-strength-strong .cf-strength-bar { background: var(--cf-success); width: 6rem; }
+
+/* Tags */
+.cf-taglist { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.cf-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: var(--cf-radius);
+    background: var(--cf-primary);
+    color: var(--cf-surface);
+    font-size: 0.8rem;
+}
+.cf-tag-remove { border: none; background: transparent; color: inherit; cursor: pointer; font-size: 1rem; line-height: 1; }
+.cf-daterange { gap: 0.5rem; }
+.cf-daterange-sep { color: var(--cf-text-secondary); }
+
+/* Unknown field fallback */
+.cf-field-unknown { border: 1px dashed var(--cf-warning); border-radius: var(--cf-radius); padding: 0.75rem; }
+.cf-unknown-notice { font-size: 0.8rem; color: var(--cf-warning); }
+.cf-unknown-value {
+    margin: 0;
+    padding: 0.5rem;
+    background: var(--cf-background);
+    border-radius: var(--cf-radius);
+    overflow: auto;
+}
+.cf-loading { font-size: 0.85rem; color: var(--cf-text-secondary); }
+
+/* Layouts and groups */
+.cf-vertical { display: flex; flex-direction: column; }
+.cf-horizontal { display: flex; flex-wrap: wrap; gap: 1rem; }
+.cf-horizontal-item { flex: 1 1 12rem; }
+.cf-group {
+    border: 1px solid var(--cf-text-secondary);
+    border-radius: var(--cf-radius);
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+}
+.cf-group-title { font-weight: 600; padding: 0 0.35rem; }
+.cf-category-description { color: var(--cf-text-secondary); margin-top: 0; }
+
+/* Banners */
+.cf-banner { border-radius: var(--cf-radius); padding: 0.75rem 1rem; margin-bottom: 1rem; }
+.cf-banner-title { display: block; margin-bottom: 0.35rem; }
+.cf-banner-line { margin: 0.25rem 0; }
+.cf-banner-section { margin-top: 0.5rem; }
+.cf-banner-danger { background: var(--cf-surface); border: 1px solid var(--cf-danger); color: var(--cf-danger); }
+.cf-banner-warning { background: var(--cf-surface); border: 1px solid var(--cf-warning); color: var(--cf-warning); }
+.cf-banner-info { background: var(--cf-surface); border: 1px solid var(--cf-primary); color: var(--cf-text-primary); }
+.cf-banner-toggle {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+/* Validation summary */
+.cf-validation-summary {
+    border: 1px solid var(--cf-danger);
+    border-radius: var(--cf-radius);
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    color: var(--cf-danger);
+}
+.cf-validation-title { display: block; margin-bottom: 0.35rem; }
+
+/* Buttons */
+.cf-button {
+    padding: 0.5rem 0.9rem;
+    border: 1px solid var(--cf-text-secondary);
+    border-radius: var(--cf-radius);
+    background: var(--cf-surface);
+    color: var(--cf-text-primary);
+    font: inherit;
+    cursor: pointer;
+}
+.cf-button:disabled { opacity: 0.5; cursor: not-allowed; }
+.cf-button-primary { background: var(--cf-primary); border-color: var(--cf-primary); color: var(--cf-surface); }
+
+/* Action and save bars */
+.cf-action-bar { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
+.cf-save-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 1.25rem;
+    background: var(--cf-surface);
+    border-top: 1px solid var(--cf-text-secondary);
+    position: sticky;
+    bottom: 0;
+}
+.cf-save-actions { display: flex; gap: 0.5rem; }
+.cf-save-invalid { color: var(--cf-danger); }
+.cf-save-dirty { color: var(--cf-warning); }
+
+/* Toasts */
+.cf-toasts {
+    position: fixed;
+    bottom: 1rem;
+    right: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    z-index: 1000;
+}
+.cf-toast {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.9rem;
+    border-radius: var(--cf-radius);
+    background: var(--cf-surface);
+    border-left: 4px solid var(--cf-primary);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    min-width: 16rem;
+}
+.cf-toast-info { border-left-color: var(--cf-primary); }
+.cf-toast-success { border-left-color: var(--cf-success); }
+.cf-toast-warning { border-left-color: var(--cf-warning); }
+.cf-toast-danger { border-left-color: var(--cf-danger); }
+.cf-toast-message { flex: 1; }
+.cf-toast-dismiss { border: none; background: transparent; color: var(--cf-text-secondary); cursor: pointer; font-size: 1.1rem; }
+
+/* Modal */
+.cf-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1100;
+}
+.cf-modal {
+    background: var(--cf-surface);
+    border-radius: var(--cf-radius);
+    padding: 1.25rem 1.5rem;
+    width: min(28rem, 90vw);
+    color: var(--cf-text-primary);
+}
+.cf-modal-title { margin-top: 0; font-size: 1.1rem; }
+.cf-modal-options { border: none; padding: 0; margin: 0 0 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
+.cf-radio { display: flex; gap: 0.5rem; align-items: flex-start; cursor: pointer; }
+.cf-radio small { display: block; color: var(--cf-text-secondary); }
+.cf-modal-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
+.cf-empty { color: var(--cf-text-secondary); }
+
+/* ── Demo: category icon glyphs (class hooks resolved here) ── */
+.cf-category-icon { display: inline-flex; width: 1.1rem; justify-content: center; }
+.cf-icon-link::before { content: "\1F517"; }
+.cf-icon-sync::before { content: "\1F504"; }
+.cf-icon-refresh::before { content: "\1F504"; }
+.cf-icon-plug::before { content: "\1F50C"; }
+
+/* ── Demo host: editor + collapsible, resizable JSON/schema panel ── */
+.demo-layout { display: flex; height: 100vh; overflow: hidden; }      /* fixed viewport → no page growth */
+.demo-editor { flex: 1; min-width: 0; overflow: auto; }               /* editor scrolls on its own */
+
+.demo-panel {
+  width: 34rem; min-width: 18rem; max-width: 72vw;
+  resize: horizontal; overflow: hidden; direction: rtl;               /* drag handle on the inner edge */
+  height: 100vh; display: flex; flex-direction: column;
+  background: #0f172a; color: #e2e8f0; border-left: 1px solid #1e293b;
+}
+.demo-panel > * { direction: ltr; }                                   /* restore content direction */
+.demo-panel-head { display: flex; align-items: center; justify-content: space-between;
+  padding: 0.5rem 0.75rem; background: #111827; border-bottom: 1px solid #1e293b; }
+.demo-tabs { display: flex; gap: 0.25rem; }
+.demo-tab { background: transparent; color: #94a3b8; border: none; padding: 0.35rem 0.7rem;
+  border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
+.demo-tab.active { background: #1e293b; color: #fff; }
+.demo-close { background: transparent; border: none; color: #94a3b8; cursor: pointer; font-size: 0.95rem; }
+.demo-actions { display: flex; gap: 0.5rem; padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid #1e293b; flex-wrap: wrap; }
+.demo-actions button { background: #1e293b; color: #e2e8f0; border: 1px solid #334155;
+  border-radius: 6px; padding: 0.35rem 0.7rem; cursor: pointer; font-size: 0.8rem; }
+.demo-actions button:hover { background: #334155; }
+.demo-copy { margin-left: auto; }
+.demo-code { flex: 1; min-height: 0; overflow: auto; margin: 0; padding: 1rem;
+  font-family: "JetBrains Mono", "Fira Code", Consolas, ui-monospace, monospace;
+  font-size: 0.8rem; line-height: 1.55; white-space: pre; color: #a7f3d0; }
+
+/* JSON toggle when panel is hidden — a normal pill button with a code icon */
+.demo-open { position: fixed; bottom: 1.25rem; right: 1.25rem; z-index: 20;
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  background: var(--cf-primary, #005fa3); color: #fff; border: none;
+  border-radius: var(--cf-radius, 6px); padding: 0.5rem 0.9rem; cursor: pointer;
+  font-size: 0.85rem; font-family: inherit; box-shadow: 0 2px 6px rgba(0,0,0,0.25); }
+.demo-open:hover { filter: brightness(1.08); }
+.demo-open .demo-open-icon { font-family: monospace; font-weight: 700; }
+
+/* Demo: reset page margins so the 100vh layout doesn't overflow into a global scrollbar. */
+html, body { margin: 0; padding: 0; height: 100%; }
+body { overflow: hidden; }
+
+/* Drag splitter replaces the unreliable CSS `resize` handle. */
+.demo-panel { resize: none; direction: ltr; max-width: 80vw; }
+.demo-splitter { flex: 0 0 6px; cursor: col-resize; background: #1e293b; }
+.demo-splitter:hover, .demo-splitter:active { background: #3b82f6; }

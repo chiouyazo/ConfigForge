@@ -1,0 +1,29 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Target Name="ConfigForge_EmbedSchemas" BeforeTargets="Build">
+    <ItemGroup>
+      <_ConfigForgeSchemaJson
+        Include="**\*.json"
+        Exclude="theme.json;**\theme.json;bin\**\*.json;obj\**\*.json"
+      />
+      <EmbeddedResource Include="@(_ConfigForgeSchemaJson)">
+        <LogicalName>schemas/%(Filename)%(Extension)</LogicalName>
+      </EmbeddedResource>
+    </ItemGroup>
+  </Target>
+
+  <Target Name="ConfigForge_EmbedTheme" BeforeTargets="Build" Condition="Exists('theme.json')">
+    <ItemGroup>
+      <EmbeddedResource Include="theme.json">
+        <LogicalName>theme.json</LogicalName>
+      </EmbeddedResource>
+    </ItemGroup>
+  </Target>
+
+  <Target
+    Name="ConfigForge_Publish"
+    AfterTargets="Publish"
+    Condition="'$(ConfigForgePublish)' == 'true' AND '$(ConfigForgePublishInner)' != 'true'"
+  >
+    <Exec Command="dotnet publish &quot;$(MSBuildProjectFullPath)&quot; -c $(Configuration) -r win-x64 --self-contained true -p:PublishSingleFile=true -p:ConfigForgePublishInner=true" />
+  </Target>
+</Project>
