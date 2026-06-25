@@ -22,7 +22,7 @@ public sealed class JsonFormsRuleEvaluator : IJsonFormsRuleEvaluator
             return rule.Effect;
         }
 
-        string? key = ScopeToKey(rule.Condition.Scope);
+        string? key = JsonFormsScope.ToKey(rule.Condition.Scope);
         object? value = key is not null && document.TryGetValue(key, out object? raw) ? raw : null;
         JsonNode? valueNode = JsonValueHelper.ToJsonNode(value);
 
@@ -38,11 +38,5 @@ public sealed class JsonFormsRuleEvaluator : IJsonFormsRuleEvaluator
 
         EvaluationResults results = conditionSchema.Evaluate(valueNode, FieldSchemaBuilder.Options);
         return results.IsValid ? rule.Effect : RuleEffect.None;
-    }
-
-    private static string? ScopeToKey(string scope)
-    {
-        const string prefix = "#/properties/";
-        return scope.StartsWith(prefix, StringComparison.Ordinal) ? scope[prefix.Length..] : null;
     }
 }

@@ -46,9 +46,53 @@ public sealed class FieldDefinition
     public IReadOnlyList<JsonFormsRule> Rules { get; init; } = [];
 
     /// <summary>
+    /// For an <c>arrayobject</c> control, the field templates describing one item's
+    /// properties. Their <see cref="Key"/> is relative to a single array element;
+    /// the array control rebases them onto <c>parentKey/index/childKey</c> per row.
+    /// Empty for every other control type.
+    /// </summary>
+    public IReadOnlyList<FieldDefinition> Children { get; init; } = [];
+
+    /// <summary>
+    /// For a <c>map</c> control, the template describing each value (from the
+    /// schema's <c>additionalProperties</c>). Its <see cref="Key"/> is empty and is
+    /// rebased onto <c>parentKey/entryKey</c> per entry. Null for every other control
+    /// type.
+    /// </summary>
+    public FieldDefinition? ValueField { get; init; }
+
+    /// <summary>
     /// The schema constraint keywords (minimum, maximum, pattern, enum, type, …)
     /// copied as CLR values for validation and example generation.
     /// </summary>
     public IReadOnlyDictionary<string, object> SchemaConstraints { get; init; } =
         new Dictionary<string, object>(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Returns a copy of this definition with a different <see cref="Key"/>. Used by
+    /// the array and map controls to rebase a child or value template onto the
+    /// concrete document path of one row or entry.
+    /// </summary>
+    /// <param name="key">The path key for the copy.</param>
+    /// <returns>A copy carrying the new key.</returns>
+    public FieldDefinition WithKey(string key) =>
+        new()
+        {
+            Key = key,
+            ControlType = ControlType,
+            Title = Title,
+            Description = Description,
+            Tooltip = Tooltip,
+            Placeholder = Placeholder,
+            Unit = Unit,
+            Required = Required,
+            ReadOnly = ReadOnly,
+            DefaultValue = DefaultValue,
+            LoaderId = LoaderId,
+            ValidatorId = ValidatorId,
+            Rules = Rules,
+            Children = Children,
+            ValueField = ValueField,
+            SchemaConstraints = SchemaConstraints,
+        };
 }

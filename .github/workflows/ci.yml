@@ -44,14 +44,20 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Derive version from tag
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          "PACKAGE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+
       - name: Restore
         run: dotnet restore
 
       - name: Build
-        run: dotnet build --no-restore --configuration Release
+        run: dotnet build --no-restore --configuration Release -p:Version=${{ env.PACKAGE_VERSION }}
 
       - name: Pack
-        run: dotnet pack --no-build --configuration Release --output artifacts
+        run: dotnet pack --no-build --configuration Release --output artifacts -p:Version=${{ env.PACKAGE_VERSION }}
 
       - name: Push to NuGet
         shell: pwsh

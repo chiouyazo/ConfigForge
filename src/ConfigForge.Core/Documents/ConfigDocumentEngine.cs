@@ -79,7 +79,11 @@ public sealed partial class ConfigDocumentEngine : IConfigDocumentEngine
                 : JsonValueHelper.FromElement(member.Value.Deserialize<JsonElement>());
         }
 
-        List<string> unknownKeys = [.. document.Keys.Where(k => !schema.Fields.ContainsKey(k))];
+        HashSet<string> knownTopLevel = new(
+            schema.Fields.Keys.Select(TopLevelSegment),
+            StringComparer.Ordinal
+        );
+        List<string> unknownKeys = [.. document.Keys.Where(k => !knownTopLevel.Contains(k))];
 
         List<string> missingRequired =
         [
@@ -175,6 +179,12 @@ public sealed partial class ConfigDocumentEngine : IConfigDocumentEngine
         }
 
         return new ConfigDiff { Changes = changes };
+    }
+
+    private static string TopLevelSegment(string key)
+    {
+        int separator = key.IndexOf('/', StringComparison.Ordinal);
+        return separator < 0 ? key : key[..separator];
     }
 
     private static List<ValidationError> ValidateValues(

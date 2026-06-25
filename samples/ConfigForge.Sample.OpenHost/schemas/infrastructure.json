@@ -1,0 +1,123 @@
+{
+  "schema": {
+    "type": "object",
+    "definitions": {
+      "jobSchedule": {
+        "type": "object",
+        "properties": {
+          "StartTime": { "type": "string", "format": "time", "title": "Start time" },
+          "IntervalMinutes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1440,
+            "title": "Interval (minutes)"
+          },
+          "Enabled": { "type": "boolean", "title": "Enabled" }
+        }
+      }
+    },
+    "properties": {
+      "ExchangeLock": {
+        "type": "object",
+        "properties": {
+          "ConnectionString": {
+            "type": "string",
+            "title": "Connection string",
+            "description": "Database connection used to coordinate the exchange lock."
+          },
+          "TimeoutSeconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 300,
+            "title": "Timeout (seconds)"
+          }
+        },
+        "required": ["ConnectionString"]
+      },
+      "Sync": {
+        "type": "object",
+        "properties": {
+          "ExportMasterData": { "$ref": "#/definitions/jobSchedule" },
+          "ImportOrders": { "$ref": "#/definitions/jobSchedule" }
+        }
+      },
+      "Observability": {
+        "type": "object",
+        "properties": {
+          "Targets": {
+            "type": "array",
+            "title": "OTLP targets",
+            "description": "Where telemetry is shipped. Add one row per collector.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "Name": { "type": "string", "title": "Name" },
+                "Endpoint": { "type": "string", "title": "Endpoint" },
+                "Protocol": {
+                  "type": "string",
+                  "enum": ["grpc", "http/protobuf"],
+                  "title": "Protocol"
+                },
+                "Headers": {
+                  "type": "object",
+                  "title": "Headers",
+                  "description": "Arbitrary key/value headers sent with each export.",
+                  "additionalProperties": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "uiSchema": {
+    "type": "Categorization",
+    "elements": [
+      {
+        "type": "Category",
+        "label": "Exchange",
+        "elements": [
+          { "type": "Control", "scope": "#/properties/ExchangeLock/properties/ConnectionString" },
+          { "type": "Control", "scope": "#/properties/ExchangeLock/properties/TimeoutSeconds" }
+        ]
+      },
+      {
+        "type": "Category",
+        "label": "Sync jobs",
+        "elements": [
+          {
+            "type": "Group",
+            "label": "Export master data",
+            "elements": [
+              { "type": "Control", "scope": "#/properties/Sync/properties/ExportMasterData/properties/StartTime" },
+              { "type": "Control", "scope": "#/properties/Sync/properties/ExportMasterData/properties/IntervalMinutes" },
+              { "type": "Control", "scope": "#/properties/Sync/properties/ExportMasterData/properties/Enabled" }
+            ]
+          },
+          {
+            "type": "Group",
+            "label": "Import orders",
+            "elements": [
+              { "type": "Control", "scope": "#/properties/Sync/properties/ImportOrders/properties/StartTime" },
+              { "type": "Control", "scope": "#/properties/Sync/properties/ImportOrders/properties/IntervalMinutes" },
+              { "type": "Control", "scope": "#/properties/Sync/properties/ImportOrders/properties/Enabled" }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "Category",
+        "label": "Observability",
+        "elements": [
+          { "type": "Control", "scope": "#/properties/Observability/properties/Targets" }
+        ]
+      }
+    ]
+  },
+  "x-cf": {
+    "id": "infrastructure",
+    "name": "Infrastructure",
+    "version": "1.0.0"
+  }
+}

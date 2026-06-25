@@ -40,7 +40,7 @@
 
     private FieldDefinition? ResolveField()
     {
-        string? key = ScopeToKey(Element.Scope);
+        string? key = JsonFormsScope.ToKey(Element.Scope);
         return key is not null && Schema.Fields.TryGetValue(key, out FieldDefinition? field) ? field : null;
     }
 
@@ -74,15 +74,4 @@
             RuleEffect.Enable => (visible, true),
             _ => (visible, enabled),
         };
-
-    private static string? ScopeToKey(string? scope)
-    {
-        if (string.IsNullOrEmpty(scope))
-        {
-            return null;
-        }
-
-        int index = scope.LastIndexOf('/');
-        return index >= 0 && index < scope.Length - 1 ? scope[(index + 1)..] : scope;
-    }
 }

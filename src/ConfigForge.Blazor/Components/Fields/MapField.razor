@@ -1,0 +1,153 @@
+@using ConfigForge.Abstractions
+@using ConfigForge.Core.Schema
+
+<div class="cf-field cf-map">
+    <FieldLabel Control="Header" />
+    <FieldDescription Control="Header" />
+
+    @{
+        List<string> keys = ReadKeys();
+    }
+
+    @if (keys.Count == 0)
+    {
+        <p class="cf-map-empty">No entries yet.</p>
+    }
+
+    @foreach (string entryKey in keys)
+    {
+        string key = entryKey;
+        <div class="cf-map-row">
+            <input class="cf-input cf-map-key"
+                   type="text"
+                   value="@key"
+                   placeholder="Key"
+                   disabled="@Disabled"
+                   @onchange="@(e => RenameKey(key, e.Value as string))" />
+            <div class="cf-map-value">
+                @if (IsObjectValue)
+                {
+                    @foreach (FieldDefinition child in ValueChildren)
+                    {
+                        <FieldRenderer Field="RebaseChild(child, key)" Disabled="Disabled" />
+                    }
+                }
+                else
+                {
+                    <FieldRenderer Field="RebaseValue(key)" Disabled="Disabled" />
+                }
+            </div>
+            @if (!Disabled)
+            {
+                <button type="button"
+                        class="cf-button cf-button-danger cf-map-remove"
+                        @onclick="@(() => RemoveKey(key))">
+                    Remove
+                </button>
+            }
+        </div>
+    }
+
+    @if (!Disabled)
+    {
+        <button type="button" class="cf-button cf-map-add" @onclick="AddEntry">
+            Add entry
+        </button>
+    }
+</div>
+
+@code {
+    /// <summary>The map field definition, carrying the value template.</summary>
+    [Parameter]
+    [EditorRequired]
+    public FieldDefinition Field { get; set; } = new();
+
+    /// <summary>True when the control must not be edited.</summary>
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Inject]
+    private EditingSession Session { get; set; } = default!;
+
+    private ControlDescriptor Header =>
+        new()
+        {
+            Key = Field.Key,
+            ControlType = Field.ControlType,
+            Title = Field.Title,
+            Description = Field.Description,
+            Tooltip = Field.Tooltip,
+            Required = Field.Required,
+        };
+
+    private FieldDefinition ValueTemplate => Field.ValueField ?? new FieldDefinition { ControlType = "text" };
+
+    private bool IsObjectValue => string.Equals(ValueTemplate.ControlType, "object", StringComparison.Ordinal);
+
+    private IReadOnlyList<FieldDefinition> ValueChildren => ValueTemplate.Children;
+
+    private FieldDefinition RebaseChild(FieldDefinition child, string key) =>
+        child.WithKey($"{Field.Key}/{key}/{child.Key}");
+
+    private FieldDefinition RebaseValue(string key) => ValueTemplate.WithKey($"{Field.Key}/{key}");
+
+    private Dictionary<string, object?> ReadMap() =>
+        Session.Document[Field.Key] is IDictionary<string, object?> map
+            ? new Dictionary<string, object?>(map, StringComparer.Ordinal)
+            : new Dictionary<string, object?>(StringComparer.Ordinal);
+
+    private List<string> ReadKeys() => [.. ReadMap().Keys];
+
+    private void AddEntry()
+    {
+        Dictionary<string, object?> map = ReadMap();
+        string key = UniqueKey(map);
+        map[key] = IsObjectValue ? new Dictionary<string, object?>(StringComparer.Ordinal) : null;
+        Session.SetFieldValue(Field.Key, map);
+    }
+
+    private void RemoveKey(string key)
+    {
+        Dictionary<string, object?> map = ReadMap();
+        if (map.Remove(key))
+        {
+            Session.SetFieldValue(Field.Key, map);
+        }
+    }
+
+    private void RenameKey(string oldKey, string? rawNewKey)
+    {
+        string newKey = (rawNewKey ?? string.Empty).Trim();
+        Dictionary<string, object?> source = ReadMap();
+        if (
+            newKey.Length == 0
+            || string.Equals(oldKey, newKey, StringComparison.Ordinal)
+            || source.ContainsKey(newKey)
+        )
+        {
+            return;
+        }
+
+        Dictionary<string, object?> renamed = new(StringComparer.Ordinal);
+        foreach (KeyValuePair<string, object?> entry in source)
+        {
+            renamed[string.Equals(entry.Key, oldKey, StringComparison.Ordinal) ? newKey : entry.Key] =
+                entry.Value;
+        }
+
+        Session.SetFieldValue(Field.Key, renamed);
+    }
+
+    private static string UniqueKey(Dictionary<string, object?> map)
+    {
+        int index = map.Count + 1;
+        string candidate = $"key{index}";
+        while (map.ContainsKey(candidate))
+        {
+            index++;
+            candidate = $"key{index}";
+        }
+
+        return candidate;
+    }
+}

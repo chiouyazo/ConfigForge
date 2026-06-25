@@ -59,6 +59,12 @@ else
         case "taglist":
             <TagListField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />
             break;
+        case "arrayobject":
+            <ArrayObjectField Field="Field" Disabled="Disabled" />
+            break;
+        case "map":
+            <MapField Field="Field" Disabled="Disabled" />
+            break;
         case "filepath":
         case "file":
             <FilePathField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />

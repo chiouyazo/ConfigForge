@@ -34,7 +34,7 @@ public sealed partial class ConfigDocumentGenerator : IConfigDocumentGenerator
         ConfigDocument document = new();
         foreach (KeyValuePair<string, FieldDefinition> entry in schema.Fields)
         {
-            document[entry.Key] = ExampleValue(entry.Value);
+            document[entry.Key] = ExampleForField(entry.Value);
         }
 
         LogDocumentGenerated("Example", schema.Id);
@@ -58,6 +58,60 @@ public sealed partial class ConfigDocumentGenerator : IConfigDocumentGenerator
 
         LogDocumentGenerated("Empty", schema.Id);
         return document;
+    }
+
+    private static object? ExampleForField(FieldDefinition field)
+    {
+        switch (field.ControlType)
+        {
+            case "arrayobject":
+                return new List<object?> { BuildObjectExample(field.Children) };
+            case "map":
+                return new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["example"] = field.ValueField is null
+                        ? "example"
+                        : ExampleForField(field.ValueField),
+                };
+            case "object":
+                return BuildObjectExample(field.Children);
+            default:
+                return ExampleValue(field);
+        }
+    }
+
+    private static Dictionary<string, object?> BuildObjectExample(
+        IReadOnlyList<FieldDefinition> children
+    )
+    {
+        Dictionary<string, object?> item = new(StringComparer.Ordinal);
+        foreach (FieldDefinition child in children)
+        {
+            AssignPath(item, child.Key, ExampleForField(child));
+        }
+
+        return item;
+    }
+
+    private static void AssignPath(Dictionary<string, object?> target, string path, object? value)
+    {
+        string[] segments = path.Split('/');
+        Dictionary<string, object?> node = target;
+        for (int i = 0; i < segments.Length - 1; i++)
+        {
+            if (
+                !node.TryGetValue(segments[i], out object? child)
+                || child is not Dictionary<string, object?> childDict
+            )
+            {
+                childDict = new Dictionary<string, object?>(StringComparer.Ordinal);
+                node[segments[i]] = childDict;
+            }
+
+            node = childDict;
+        }
+
+        node[segments[^1]] = value;
     }
 
     private static object? ExampleValue(FieldDefinition field)

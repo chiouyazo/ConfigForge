@@ -290,3 +290,20 @@
 .cf-radio small { display: block; color: var(--cf-text-secondary); }
 .cf-modal-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
 .cf-empty { color: var(--cf-text-secondary); }
+
+.cf-arrayobject, .cf-map { gap: 0.6rem; }
+.cf-arrayobject-empty, .cf-map-empty { margin: 0; font-size: 0.85rem; color: var(--cf-text-secondary); }
+.cf-arrayobject-row, .cf-map-row {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    padding: 0.75rem;
+    border: 1px solid var(--cf-text-secondary);
+    border-radius: var(--cf-radius);
+    background: var(--cf-surface);
+}
+.cf-arrayobject-row-body, .cf-map-value { flex: 1; display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; }
+.cf-arrayobject-row-body .cf-field, .cf-map-value .cf-field { margin-bottom: 0; }
+.cf-map-key { flex: 0 0 12rem; align-self: flex-start; }
+.cf-arrayobject-remove, .cf-map-remove { flex: 0 0 auto; align-self: flex-start; }
+.cf-arrayobject-add, .cf-map-add { align-self: flex-start; }

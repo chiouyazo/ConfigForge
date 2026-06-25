@@ -76,8 +76,7 @@ public sealed partial class JsonFormsSchemaParser : IJsonFormsSchemaParser
         JsonObject controls = GetObjectOrEmpty(xcf, "controls");
         JsonObject categoriesMeta = GetObjectOrEmpty(xcf, "categories");
 
-        HashSet<string> required = ReadRequired(schemaObject);
-        Dictionary<string, FieldDefinition> fields = BuildFields(schemaObject, controls, required);
+        Dictionary<string, FieldDefinition> fields = BuildFields(schemaObject, controls);
 
         List<CategoryElement> categories = BuildCategories(uiObject, categoriesMeta, fields);
 
@@ -175,49 +174,200 @@ public sealed partial class JsonFormsSchemaParser : IJsonFormsSchemaParser
 
     private static Dictionary<string, FieldDefinition> BuildFields(
         JsonObject schemaObject,
-        JsonObject controls,
-        HashSet<string> required
+        JsonObject controls
     )
     {
         Dictionary<string, FieldDefinition> fields = new(StringComparer.Ordinal);
+        foreach (
+            FieldDefinition field in BuildObjectFields(
+                schemaObject,
+                schemaObject,
+                controls,
+                string.Empty
+            )
+        )
+        {
+            fields[field.Key] = field;
+        }
 
-        if (schemaObject["properties"] is not JsonObject properties)
+        return fields;
+    }
+
+    /// <summary>
+    /// Builds the field list for one object schema in declaration order. Plain
+    /// nested objects are flattened into path-keyed leaves; arrays of objects and
+    /// <c>additionalProperties</c> maps become single composite fields that carry
+    /// their child or value templates.
+    /// </summary>
+    private static List<FieldDefinition> BuildObjectFields(
+        JsonObject objectSchema,
+        JsonObject rootSchema,
+        JsonObject controls,
+        string prefix
+    )
+    {
+        List<FieldDefinition> fields = [];
+        if (objectSchema["properties"] is not JsonObject properties)
         {
             return fields;
         }
 
+        HashSet<string> required = ReadRequired(objectSchema);
+
         foreach (KeyValuePair<string, JsonNode?> property in properties)
         {
-            if (property.Value is not JsonObject propSchema)
+            if (property.Value is not JsonObject rawProp)
             {
                 continue;
             }
 
-            string key = property.Key;
+            JsonObject propSchema = ResolveRef(rawProp, rootSchema);
+            string key = prefix.Length == 0 ? property.Key : $"{prefix}/{property.Key}";
             JsonObject control = controls[key] as JsonObject ?? [];
 
-            fields[key] = new FieldDefinition
+            if (string.IsNullOrEmpty(GetString(control, "type")) && IsPlainObject(propSchema))
             {
-                Key = key,
-                ControlType = InferControlType(propSchema, control),
-                Title = GetString(propSchema, "title"),
-                Description = GetString(propSchema, "description"),
-                Tooltip = GetString(control, "tooltip"),
-                Placeholder = GetString(control, "placeholder"),
-                Unit = GetString(control, "unit"),
-                Required = required.Contains(key),
-                ReadOnly = GetBool(propSchema, "readOnly") ?? false,
-                DefaultValue = propSchema.TryGetPropertyValue("default", out JsonNode? def)
-                    ? JsonValueHelper.FromElement(def.Deserialize<JsonElement>())
-                    : null,
-                LoaderId = GetString(control, "loaderId"),
-                ValidatorId = GetString(control, "validatorId"),
-                SchemaConstraints = ReadConstraints(propSchema),
-                Rules = [],
-            };
+                fields.AddRange(BuildObjectFields(propSchema, rootSchema, controls, key));
+                continue;
+            }
+
+            fields.Add(
+                BuildField(key, propSchema, control, rootSchema, required.Contains(property.Key))
+            );
         }
 
         return fields;
+    }
+
+    private static FieldDefinition BuildField(
+        string key,
+        JsonObject propSchema,
+        JsonObject control,
+        JsonObject rootSchema,
+        bool required
+    )
+    {
+        string controlType = InferControlType(propSchema, control, rootSchema);
+
+        IReadOnlyList<FieldDefinition> children = [];
+        FieldDefinition? valueField = null;
+
+        if (
+            string.Equals(controlType, "arrayobject", StringComparison.Ordinal)
+            && ResolveRef(propSchema["items"] as JsonObject, rootSchema) is JsonObject itemSchema
+        )
+        {
+            children = BuildObjectFields(itemSchema, rootSchema, [], string.Empty);
+        }
+        else if (
+            string.Equals(controlType, "map", StringComparison.Ordinal)
+            && ResolveRef(propSchema["additionalProperties"] as JsonObject, rootSchema)
+                is JsonObject valueSchema
+        )
+        {
+            valueField = BuildValueField(valueSchema, rootSchema);
+        }
+
+        return new FieldDefinition
+        {
+            Key = key,
+            ControlType = controlType,
+            Title = GetString(propSchema, "title"),
+            Description = GetString(propSchema, "description"),
+            Tooltip = GetString(control, "tooltip"),
+            Placeholder = GetString(control, "placeholder"),
+            Unit = GetString(control, "unit"),
+            Required = required,
+            ReadOnly = GetBool(propSchema, "readOnly") ?? false,
+            DefaultValue = propSchema.TryGetPropertyValue("default", out JsonNode? def)
+                ? JsonValueHelper.FromElement(def.Deserialize<JsonElement>())
+                : null,
+            LoaderId = GetString(control, "loaderId"),
+            ValidatorId = GetString(control, "validatorId"),
+            SchemaConstraints = ReadConstraints(propSchema),
+            Rules = [],
+            Children = children,
+            ValueField = valueField,
+        };
+    }
+
+    /// <summary>Builds the per-entry value template for a <c>map</c> control.</summary>
+    private static FieldDefinition BuildValueField(JsonObject valueSchema, JsonObject rootSchema)
+    {
+        if (IsPlainObject(valueSchema))
+        {
+            return new FieldDefinition
+            {
+                Key = string.Empty,
+                ControlType = "object",
+                Children = BuildObjectFields(valueSchema, rootSchema, [], string.Empty),
+            };
+        }
+
+        return BuildField(string.Empty, valueSchema, [], rootSchema, required: false);
+    }
+
+    private static bool IsPlainObject(JsonObject schema)
+    {
+        string? type = GetString(schema, "type");
+        return (type is null || string.Equals(type, "object", StringComparison.Ordinal))
+            && schema["properties"] is JsonObject;
+    }
+
+    /// <summary>
+    /// Resolves a local <c>$ref</c> (<c>#/definitions/…</c> or <c>#/$defs/…</c>) to
+    /// its target, following chains and stopping on cycles. Returns the node
+    /// unchanged when it has no <c>$ref</c> or the target cannot be found.
+    /// </summary>
+    private static JsonObject ResolveRef(JsonObject? node, JsonObject rootSchema)
+    {
+        JsonObject? current = node;
+        HashSet<string> seen = new(StringComparer.Ordinal);
+
+        while (current is not null && GetString(current, "$ref") is { Length: > 0 } pointer)
+        {
+            if (!seen.Add(pointer))
+            {
+                break;
+            }
+
+            JsonObject? target = ResolvePointer(rootSchema, pointer);
+            if (target is null)
+            {
+                break;
+            }
+
+            current = target;
+        }
+
+        return current ?? [];
+    }
+
+    private static JsonObject? ResolvePointer(JsonObject root, string pointer)
+    {
+        if (!pointer.StartsWith("#/", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        JsonNode? node = root;
+        foreach (string rawSegment in pointer[2..].Split('/'))
+        {
+            string segment = rawSegment
+                .Replace("~1", "/", StringComparison.Ordinal)
+                .Replace("~0", "~", StringComparison.Ordinal);
+
+            if (node is JsonObject obj && obj.TryGetPropertyValue(segment, out JsonNode? child))
+            {
+                node = child;
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+        return node as JsonObject;
     }
 
     /// <summary>
@@ -225,10 +375,16 @@ public sealed partial class JsonFormsSchemaParser : IJsonFormsSchemaParser
     /// always wins. Otherwise inference runs:
     /// boolean → checkbox; string with format date/date-time/time/color →
     /// the matching control; string with enum or a loaderId → select; array of
-    /// enum strings → checklist; array of strings → taglist; integer/number →
-    /// number, or slider when both minimum and maximum are present; string → text; anything else → text.
+    /// enum strings → checklist; array of strings → taglist; array of objects →
+    /// arrayobject; integer/number → number, or slider when both minimum and maximum
+    /// are present; object with additionalProperties → map; string → text;
+    /// anything else → text.
     /// </summary>
-    private static string InferControlType(JsonObject propSchema, JsonObject control)
+    private static string InferControlType(
+        JsonObject propSchema,
+        JsonObject control,
+        JsonObject rootSchema
+    )
     {
         string? explicitType = GetString(control, "type");
         if (!string.IsNullOrEmpty(explicitType))
@@ -275,7 +431,13 @@ public sealed partial class JsonFormsSchemaParser : IJsonFormsSchemaParser
                 return hasMin && hasMax ? "slider" : "number";
 
             case "array":
-                if (propSchema["items"] is JsonObject items)
+                JsonObject? items = ResolveRef(propSchema["items"] as JsonObject, rootSchema);
+                if (items is not null && IsObjectSchema(items))
+                {
+                    return "arrayobject";
+                }
+
+                if (items is not null)
                 {
                     bool itemIsString = GetString(items, "type") == "string";
                     if (items["enum"] is JsonArray && itemIsString)
@@ -291,9 +453,19 @@ public sealed partial class JsonFormsSchemaParser : IJsonFormsSchemaParser
 
                 return "text";
 
+            case "object":
+                return propSchema["additionalProperties"] is JsonObject ? "map" : "text";
+
             default:
-                return "text";
+                return propSchema["additionalProperties"] is JsonObject ? "map" : "text";
         }
+    }
+
+    private static bool IsObjectSchema(JsonObject schema)
+    {
+        string? type = GetString(schema, "type");
+        return string.Equals(type, "object", StringComparison.Ordinal)
+            || (type is null && schema["properties"] is JsonObject);
     }
 
     private static Dictionary<string, object> ReadConstraints(JsonObject propSchema)
@@ -337,7 +509,7 @@ public sealed partial class JsonFormsSchemaParser : IJsonFormsSchemaParser
                         .. fields.Keys.Select(k => new UiElement
                         {
                             Type = "Control",
-                            Scope = $"#/properties/{k}",
+                            Scope = JsonFormsScope.ToScope(k),
                         }),
                     ],
                 }
@@ -440,7 +612,7 @@ public sealed partial class JsonFormsSchemaParser : IJsonFormsSchemaParser
 
         if (rule is not null && scope is not null)
         {
-            string? key = ScopeToKey(scope);
+            string? key = JsonFormsScope.ToKey(scope);
             if (key is not null)
             {
                 if (!rulesByKey.TryGetValue(key, out List<JsonFormsRule>? list))
@@ -532,12 +704,6 @@ public sealed partial class JsonFormsSchemaParser : IJsonFormsSchemaParser
         }
 
         return required;
-    }
-
-    private static string? ScopeToKey(string scope)
-    {
-        const string prefix = "#/properties/";
-        return scope.StartsWith(prefix, StringComparison.Ordinal) ? scope[prefix.Length..] : null;
     }
 
     private static JsonObject GetRequiredObject(JsonObject parent, string name)
