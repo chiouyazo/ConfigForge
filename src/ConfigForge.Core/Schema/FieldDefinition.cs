@@ -46,6 +46,15 @@ public sealed class FieldDefinition
     public IReadOnlyList<JsonFormsRule> Rules { get; init; } = [];
 
     /// <summary>
+    /// Whether this field participates in persistence. When false (set via
+    /// <c>x-cf.controls[key].tracked: false</c>), the field is still editable and
+    /// readable by actions, but its value never marks the document dirty and is
+    /// stripped from the saved output, e.g. a transient "test recipient" field.
+    /// Defaults to true.
+    /// </summary>
+    public bool Tracked { get; init; } = true;
+
+    /// <summary>
     /// For an <c>arrayobject</c> control, the field templates describing one item's
     /// properties. Their <see cref="Key"/> is relative to a single array element;
     /// the array control rebases them onto <c>parentKey/index/childKey</c> per row.
@@ -91,6 +100,7 @@ public sealed class FieldDefinition
             LoaderId = LoaderId,
             ValidatorId = ValidatorId,
             Rules = Rules,
+            Tracked = Tracked,
             Children = Children,
             ValueField = ValueField,
             SchemaConstraints = SchemaConstraints,

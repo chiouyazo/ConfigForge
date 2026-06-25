@@ -1,0 +1,62 @@
+/*
+ * Host chrome for the ConfigForge ASP.NET open-mode host: the schema-picker
+ * toolbar and page-level font that sit OUTSIDE the themed shell root. Every
+ * shell, layout, and field style comes from the single source of truth at
+ * _content/ConfigForge.Blazor/configforge.css, which this host links alongside.
+ */
+
+body {
+    overflow: hidden;
+    font-family: system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.cf-host {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.cf-host > .cf-root,
+.cf-host > div:last-child {
+    flex: 1;
+    min-height: 0;
+}
+
+.cf-host-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 1.25rem;
+    background: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.cf-host-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: #374151;
+}
+
+.cf-host-field select {
+    padding: 0.35rem 0.6rem;
+    border: 1px solid #d0d0d8;
+    border-radius: 6px;
+    font: inherit;
+    background: #fff;
+    color: #111827;
+}
+
+.cf-host-error {
+    padding: 0.6rem 1.25rem;
+    background: #fef2f2;
+    color: #b91c1c;
+    font-size: 0.9rem;
+}
+
+.cf-host-empty {
+    padding: 2rem 1.25rem;
+    color: #6b7280;
+}

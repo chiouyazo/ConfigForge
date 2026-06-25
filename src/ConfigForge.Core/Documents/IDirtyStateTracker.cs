@@ -7,6 +7,12 @@ namespace ConfigForge.Core.Documents;
 /// </summary>
 public interface IDirtyStateTracker
 {
+    /// <summary>
+    /// Path keys excluded from dirty tracking (fields marked <c>tracked: false</c>).
+    /// Changes to these never mark the document dirty.
+    /// </summary>
+    IReadOnlySet<string> IgnoredKeys { get; set; }
+
     /// <summary>Captures the supplied document as the clean baseline.</summary>
     /// <param name="document">The document to snapshot.</param>
     void Snapshot(ConfigDocument document);

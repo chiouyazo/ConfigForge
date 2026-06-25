@@ -59,4 +59,22 @@ public sealed class AspNetConfigForgeOptions
     /// when no document exists.
     /// </summary>
     public Func<string, Task<string?>>? OnLoad { get; set; }
+
+    /// <summary>
+    /// Opt-in convenience: wires <see cref="OnSave"/> and <see cref="OnLoad"/> to a
+    /// <see cref="LocalConfigFileStore"/> that persists each schema's document under
+    /// <paramref name="directory"/> and keeps the most recent rotated backups. Hosts
+    /// that manage their own storage simply set <see cref="OnSave"/>/<see cref="OnLoad"/>
+    /// themselves and ignore this.
+    /// </summary>
+    /// <param name="directory">The folder to store current documents and backups in.</param>
+    /// <param name="keepBackups">How many rotated backups to retain per schema. 0 disables backups.</param>
+    /// <returns>The same options instance, for chaining.</returns>
+    public AspNetConfigForgeOptions UseLocalFileStore(string directory, int keepBackups = 10)
+    {
+        var store = new LocalConfigFileStore(directory, keepBackups);
+        OnSave = store.SaveAsync;
+        OnLoad = store.LoadAsync;
+        return this;
+    }
 }

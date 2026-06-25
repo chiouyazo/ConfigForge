@@ -3,6 +3,7 @@ using ConfigForge.Blazor.Services;
 using ConfigForge.Core.Documents;
 using ConfigForge.Core.Schema;
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 
 namespace ConfigForge.Blazor.Components;
 
@@ -16,6 +17,15 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
     private bool _showGenerateDialog;
     private bool _initialized;
     private bool _disposed;
+    private bool _codePanelOpen;
+    private bool _copied;
+    private CodeView _codeView = CodeView.Config;
+
+    private enum CodeView
+    {
+        Config,
+        Schema,
+    }
 
     /// <summary>The schema to edit against.</summary>
     [Parameter]
@@ -47,6 +57,21 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
     public bool ShowGenerateButton { get; set; } = true;
 
     /// <summary>
+    /// Whether the collapsible code panel (live Config JSON, and the Schema when
+    /// <see cref="SchemaJson"/> is supplied) and its header toggle are available.
+    /// Default true.
+    /// </summary>
+    [Parameter]
+    public bool ShowCodePanel { get; set; } = true;
+
+    /// <summary>
+    /// The raw schema JSON, shown on the code panel's Schema tab. When null the Schema
+    /// tab is hidden and only the live Config JSON is shown.
+    /// </summary>
+    [Parameter]
+    public string? SchemaJson { get; set; }
+
+    /// <summary>
     /// The label of the category to activate. Lets a host deep-link to a category
     /// (e.g. from the URL). Matched case-insensitively against the schema categories.
     /// </summary>
@@ -70,7 +95,20 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
     [Inject]
     private IConfigDocumentGenerator Generator { get; set; } = default!;
 
+    [Inject]
+    private IConfigDocumentEngine Engine { get; set; } = default!;
+
+    [Inject]
+    private IJSRuntime JS { get; set; } = default!;
+
     private ThemeDefinition Theme => ThemeProvider.GetTheme();
+
+    private bool HasSchemaJson => !string.IsNullOrEmpty(SchemaJson);
+
+    private string CurrentCode =>
+        _codeView == CodeView.Schema && HasSchemaJson
+            ? SchemaJson!
+            : Engine.Serialize(Session.Document, Schema);
 
     private IReadOnlyList<CategoryElement> Categories => Schema.Categories;
 
@@ -141,6 +179,32 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
         if (OnCategoryChanged.HasDelegate && index >= 0 && index < categories.Count)
         {
             await OnCategoryChanged.InvokeAsync(categories[index].Label).ConfigureAwait(false);
+        }
+    }
+
+    private void ToggleCodePanel()
+    {
+        _codePanelOpen = !_codePanelOpen;
+        _copied = false;
+    }
+
+    private void SetCodeView(CodeView view)
+    {
+        _codeView = view;
+        _copied = false;
+    }
+
+    private async Task CopyCodeAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", CurrentCode)
+                .ConfigureAwait(false);
+            _copied = true;
+        }
+        catch (JSException)
+        {
+            // Clipboard access can be denied; leave the button label unchanged.
         }
     }
 

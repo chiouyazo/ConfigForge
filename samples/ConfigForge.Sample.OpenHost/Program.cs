@@ -12,13 +12,11 @@ builder.Services.AddConfigForge(options =>
     options.ApplicationTitle = "ConfigForge Open Host";
     options.SchemaDirectory = Path.Combine(builder.Environment.ContentRootPath, "schemas");
     options.PluginDirectory = Path.Combine(builder.Environment.ContentRootPath, "plugins");
-    options.OnSave = (schemaId, json) =>
-        File.WriteAllTextAsync(Path.Combine(builder.Environment.ContentRootPath, $"{schemaId}.config.json"), json);
-    options.OnLoad = schemaId =>
-    {
-        string path = Path.Combine(builder.Environment.ContentRootPath, $"{schemaId}.config.json");
-        return File.Exists(path) ? File.ReadAllTextAsync(path) : Task.FromResult<string?>(null);
-    };
+
+    options.UseLocalFileStore(
+        Path.Combine(builder.Environment.ContentRootPath, "configs"),
+        keepBackups: 10
+    );
 });
 
 var app = builder.Build();

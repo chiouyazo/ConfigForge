@@ -1,12 +1,16 @@
 @page "/"
 @page "/config-ui"
 @rendermode InteractiveServer
+@implements IDisposable
+@using System.Text
 @using ConfigForge.Core.Documents
 @using ConfigForge.Core.Schema
+@using Microsoft.JSInterop
 @inject IConfigForgeHostState State
 @inject IJsonFormsSchemaParser Parser
 @inject IConfigDocumentEngine Engine
 @inject IConfigDocumentGenerator Generator
+@inject IJSRuntime JS
 
 <div class="cf-host">
     @if (_schemaChoices.Count > 1)
@@ -41,6 +45,9 @@
                           ParseResult="_parseResult"
                           RawDocumentJson="_rawJson"
                           Mode="State.Options.Mode"
+                          SchemaJson="@_schemaJson"
+                          ActiveCategoryLabel="@_activeCategoryLabel"
+                          OnCategoryChanged="OnCategoryChangedAsync"
                           OnSave="OnSaveAsync" />
     }
     else
@@ -59,9 +66,13 @@
     private ConfigDocument? _document;
     private ConfigDocumentParseResult? _parseResult;
     private string? _rawJson;
+    private string? _schemaJson;
     private string? _loadError;
+    private string? _activeCategoryLabel;
 
     private int _loadGeneration;
+    private DotNetObjectReference<ConfigForgePage>? _selfRef;
+    private bool _hashWired;
 
     protected override async Task OnInitializedAsync()
     {
@@ -71,6 +82,73 @@
         {
             await SelectSchemaAsync(_schemaChoices[0]).ConfigureAwait(false);
         }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        _selfRef = DotNetObjectReference.Create(this);
+        await JS.InvokeVoidAsync("configForgeHost.onHashChange", _selfRef).ConfigureAwait(false);
+        _hashWired = true;
+
+        string slug = await JS.InvokeAsync<string>("configForgeHost.readHash").ConfigureAwait(false);
+        ApplyHashSlug(slug);
+    }
+
+    /// <summary>Invoked from JS when the URL fragment changes (back/forward or manual edit).</summary>
+    [JSInvokable]
+    public Task OnHashChanged(string slug) => InvokeAsync(() => ApplyHashSlug(slug));
+
+    private void ApplyHashSlug(string? slug)
+    {
+        if (_schema is null || string.IsNullOrEmpty(slug))
+        {
+            return;
+        }
+
+        string? label = _schema
+            .Categories.Select(c => c.Label)
+            .FirstOrDefault(l => string.Equals(Slugify(l), slug, StringComparison.OrdinalIgnoreCase));
+
+        if (label is not null && !string.Equals(label, _activeCategoryLabel, StringComparison.Ordinal))
+        {
+            _activeCategoryLabel = label;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnCategoryChangedAsync(string label)
+    {
+        _activeCategoryLabel = label;
+        if (_hashWired)
+        {
+            await JS.InvokeVoidAsync("configForgeHost.writeHash", Slugify(label)).ConfigureAwait(false);
+        }
+    }
+
+    private static string Slugify(string label)
+    {
+        StringBuilder builder = new(label.Length);
+        bool lastDash = false;
+        foreach (char c in label.Trim().ToLowerInvariant())
+        {
+            if (char.IsLetterOrDigit(c))
+            {
+                builder.Append(c);
+                lastDash = false;
+            }
+            else if (!lastDash && builder.Length > 0)
+            {
+                builder.Append('-');
+                lastDash = true;
+            }
+        }
+
+        return builder.ToString().Trim('-');
     }
 
     private void BuildSchemaChoices()
@@ -137,6 +215,9 @@
         try
         {
             _schema = ResolveSchema(choice);
+            string schemaPath =
+                choice.FilePath ?? Path.Combine(ResolveSchemaDirectory(), $"{choice.Id}.json");
+            _schemaJson = File.Exists(schemaPath) ? File.ReadAllText(schemaPath) : null;
         }
         catch (SchemaParseException ex)
         {
@@ -199,9 +280,12 @@
             return;
         }
 
-        string payload = Engine.Serialize(document);
+        string payload = Engine.Serialize(document, _schema);
         await State.Options.OnSave(_schema.Id, payload).ConfigureAwait(false);
     }
 
     private void Bump() => _loadGeneration++;
+
+    /// <inheritdoc />
+    public void Dispose() => _selfRef?.Dispose();
 }

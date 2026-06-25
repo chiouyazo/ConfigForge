@@ -27,4 +27,11 @@ public sealed class ConfigSchema
 
     /// <summary>The action buttons declared in <c>x-cf.actions</c>.</summary>
     public IReadOnlyList<ActionDefinition> Actions { get; init; } = [];
+
+    /// <summary>
+    /// The path keys of fields marked <c>tracked: false</c>: editable and readable
+    /// by actions, but excluded from dirty tracking and from the saved output.
+    /// </summary>
+    public IReadOnlySet<string> UntrackedKeys { get; init; } =
+        new HashSet<string>(StringComparer.Ordinal);
 }

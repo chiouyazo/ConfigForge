@@ -8,22 +8,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@Title</title>
     <base href="/" />
-    <link rel="stylesheet" href="_content/ConfigForge.AspNet/configforge.css" />
+    <link rel="stylesheet" href="_content/ConfigForge.Blazor/configforge.css" />
+    <link rel="stylesheet" href="_content/ConfigForge.AspNet/configforge.host.css" />
     @((MarkupString)$"<style>{ThemeVariables}</style>")
-    @((MarkupString)$"<style>{CssText}</style>")
     <HeadOutlet />
 </head>
 
 <body>
     <Routes @rendermode="InteractiveServer" />
     <script src="_framework/blazor.web.js"></script>
+    <script src="_content/ConfigForge.AspNet/configforge.host.js"></script>
 </body>
 
 </html>
 
 @code {
-    private static string? _css;
-
     /// <summary>The browser tab title, taken from the configured application title.</summary>
     private string Title => State.Options.ApplicationTitle;
 
@@ -46,29 +45,5 @@
                 + $"--cf-border-radius:{theme.BorderRadius};"
                 + "}";
         }
-    }
-
-    private string CssText => _css ??= LoadBundledCss();
-
-    private static string LoadBundledCss()
-    {
-        try
-        {
-            string baseDir = AppContext.BaseDirectory;
-            string path = System.IO.Path.Combine(
-                baseDir,
-                "wwwroot",
-                "configforge.css"
-            );
-            if (System.IO.File.Exists(path))
-            {
-                return System.IO.File.ReadAllText(path);
-            }
-        }
-        catch (IOException)
-        {
-        }
-
-        return string.Empty;
     }
 }

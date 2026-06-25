@@ -25,6 +25,12 @@
         {
             <CfLogo Logo="Logo" />
         }
+        @if (ShowCodePanel)
+        {
+            <button type="button" class="cf-button cf-button-secondary" @onclick="OnToggleCodePanel">
+                @(CodePanelOpen ? "Hide code" : "View code")
+            </button>
+        }
         @if (Mode == ConfigForgeMode.Open && ShowGenerateButton)
         {
             <button type="button" class="cf-button cf-button-primary" @onclick="OnGenerate">
@@ -58,6 +64,18 @@
     /// <summary>Raised when the user clicks the generate-document button.</summary>
     [Parameter]
     public EventCallback OnGenerate { get; set; }
+
+    /// <summary>Whether the code-panel toggle button is shown (left of generate).</summary>
+    [Parameter]
+    public bool ShowCodePanel { get; set; }
+
+    /// <summary>Whether the code panel is currently open (drives the button label).</summary>
+    [Parameter]
+    public bool CodePanelOpen { get; set; }
+
+    /// <summary>Raised when the user toggles the code panel.</summary>
+    [Parameter]
+    public EventCallback OnToggleCodePanel { get; set; }
 
     private bool IsHeaderPosition(LogoPosition position) => Logo is not null && Logo.Position == position;
 }

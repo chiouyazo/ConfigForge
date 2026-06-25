@@ -89,6 +89,10 @@ public sealed partial class JsonFormsSchemaParser : IJsonFormsSchemaParser
             Categories = categories,
             Fields = fields,
             Actions = BuildActions(xcf),
+            UntrackedKeys = new HashSet<string>(
+                fields.Values.Where(f => !f.Tracked).Select(f => f.Key),
+                StringComparer.Ordinal
+            ),
         };
 
         LogSchemaParsed(schema.Id, schema.Version, schema.Categories.Count);
@@ -286,6 +290,7 @@ public sealed partial class JsonFormsSchemaParser : IJsonFormsSchemaParser
             ValidatorId = GetString(control, "validatorId"),
             SchemaConstraints = ReadConstraints(propSchema),
             Rules = [],
+            Tracked = GetBool(control, "tracked") ?? true,
             Children = children,
             ValueField = valueField,
         };

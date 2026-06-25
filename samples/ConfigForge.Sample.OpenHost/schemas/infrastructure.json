@@ -34,6 +34,12 @@
         },
         "required": ["ConnectionString"]
       },
+      "TestRecipient": {
+        "type": "string",
+        "format": "email",
+        "title": "Test recipient (not saved)",
+        "description": "Used only to send a one-off test message. Editing it never marks the config dirty and it is excluded from the saved file."
+      },
       "Sync": {
         "type": "object",
         "properties": {
@@ -79,7 +85,8 @@
         "label": "Exchange",
         "elements": [
           { "type": "Control", "scope": "#/properties/ExchangeLock/properties/ConnectionString" },
-          { "type": "Control", "scope": "#/properties/ExchangeLock/properties/TimeoutSeconds" }
+          { "type": "Control", "scope": "#/properties/ExchangeLock/properties/TimeoutSeconds" },
+          { "type": "Control", "scope": "#/properties/TestRecipient" }
         ]
       },
       {
@@ -90,18 +97,58 @@
             "type": "Group",
             "label": "Export master data",
             "elements": [
-              { "type": "Control", "scope": "#/properties/Sync/properties/ExportMasterData/properties/StartTime" },
-              { "type": "Control", "scope": "#/properties/Sync/properties/ExportMasterData/properties/IntervalMinutes" },
-              { "type": "Control", "scope": "#/properties/Sync/properties/ExportMasterData/properties/Enabled" }
+              { "type": "Control", "scope": "#/properties/Sync/properties/ExportMasterData/properties/Enabled" },
+              {
+                "type": "Control",
+                "scope": "#/properties/Sync/properties/ExportMasterData/properties/StartTime",
+                "rule": {
+                  "effect": "ENABLE",
+                  "condition": {
+                    "scope": "#/properties/Sync/properties/ExportMasterData/properties/Enabled",
+                    "schema": { "const": true }
+                  }
+                }
+              },
+              {
+                "type": "Control",
+                "scope": "#/properties/Sync/properties/ExportMasterData/properties/IntervalMinutes",
+                "rule": {
+                  "effect": "ENABLE",
+                  "condition": {
+                    "scope": "#/properties/Sync/properties/ExportMasterData/properties/Enabled",
+                    "schema": { "const": true }
+                  }
+                }
+              }
             ]
           },
           {
             "type": "Group",
             "label": "Import orders",
             "elements": [
-              { "type": "Control", "scope": "#/properties/Sync/properties/ImportOrders/properties/StartTime" },
-              { "type": "Control", "scope": "#/properties/Sync/properties/ImportOrders/properties/IntervalMinutes" },
-              { "type": "Control", "scope": "#/properties/Sync/properties/ImportOrders/properties/Enabled" }
+              { "type": "Control", "scope": "#/properties/Sync/properties/ImportOrders/properties/Enabled" },
+              {
+                "type": "Control",
+                "scope": "#/properties/Sync/properties/ImportOrders/properties/StartTime",
+                "rule": {
+                  "effect": "ENABLE",
+                  "condition": {
+                    "scope": "#/properties/Sync/properties/ImportOrders/properties/Enabled",
+                    "schema": { "const": true }
+                  }
+                }
+              },
+              {
+                "type": "Control",
+                "scope": "#/properties/Sync/properties/ImportOrders/properties/IntervalMinutes",
+                "rule": {
+                  "effect": "ENABLE",
+                  "condition": {
+                    "scope": "#/properties/Sync/properties/ImportOrders/properties/Enabled",
+                    "schema": { "const": true }
+                  }
+                }
+              }
             ]
           }
         ]
@@ -118,6 +165,9 @@
   "x-cf": {
     "id": "infrastructure",
     "name": "Infrastructure",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "controls": {
+      "TestRecipient": { "tracked": false }
+    }
   }
 }

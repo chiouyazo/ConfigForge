@@ -13,6 +13,10 @@ public sealed class DirtyStateTracker : IDirtyStateTracker
     private HashSet<string> _dirtyKeys = new(StringComparer.Ordinal);
 
     /// <inheritdoc />
+    public IReadOnlySet<string> IgnoredKeys { get; set; } =
+        new HashSet<string>(StringComparer.Ordinal);
+
+    /// <inheritdoc />
     public event EventHandler? DirtyStateChanged;
 
     /// <inheritdoc />
@@ -67,12 +71,22 @@ public sealed class DirtyStateTracker : IDirtyStateTracker
         SetDirtyKeys([]);
     }
 
-    private static Dictionary<string, string> Capture(ConfigDocument document)
+    private Dictionary<string, string> Capture(ConfigDocument document)
     {
-        Dictionary<string, string> map = new(StringComparer.Ordinal);
-        foreach (string key in document.Keys)
+        ConfigDocument effective = document;
+        if (IgnoredKeys.Count > 0)
         {
-            map[key] = JsonValueHelper.Serialize(document[key]);
+            effective = document.Clone();
+            foreach (string ignored in IgnoredKeys)
+            {
+                effective.Remove(ignored);
+            }
+        }
+
+        Dictionary<string, string> map = new(StringComparer.Ordinal);
+        foreach (string key in effective.Keys)
+        {
+            map[key] = JsonValueHelper.Serialize(effective[key]);
         }
 
         return map;

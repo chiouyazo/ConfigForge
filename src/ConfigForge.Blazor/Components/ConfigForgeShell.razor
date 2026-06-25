@@ -7,6 +7,9 @@
                    Logo="Theme.Logo"
                    Mode="Mode"
                    ShowGenerateButton="ShowGenerateButton"
+                   ShowCodePanel="ShowCodePanel"
+                   CodePanelOpen="_codePanelOpen"
+                   OnToggleCodePanel="ToggleCodePanel"
                    OnGenerate="ShowGenerateDialog" />
 
         <div class="cf-body">
@@ -22,12 +25,42 @@
                 <ConfigCanvas />
                 <ActionButtonBar />
             </main>
+
+            @if (ShowCodePanel && _codePanelOpen)
+            {
+                <aside class="cf-codepanel">
+                    <div class="cf-codepanel-head">
+                        <div class="cf-codepanel-tabs">
+                            <button type="button"
+                                    class="cf-codepanel-tab @(_codeView == CodeView.Config ? "cf-active" : string.Empty)"
+                                    @onclick="@(() => SetCodeView(CodeView.Config))">
+                                Config JSON
+                            </button>
+                            @if (HasSchemaJson)
+                            {
+                                <button type="button"
+                                        class="cf-codepanel-tab @(_codeView == CodeView.Schema ? "cf-active" : string.Empty)"
+                                        @onclick="@(() => SetCodeView(CodeView.Schema))">
+                                    Schema
+                                </button>
+                            }
+                        </div>
+                        <button type="button" class="cf-button cf-button-secondary" @onclick="CopyCodeAsync">
+                            @(_copied ? "Copied" : "Copy")
+                        </button>
+                    </div>
+                    <pre class="cf-codepanel-code"><code>@CurrentCode</code></pre>
+                </aside>
+            }
         </div>
 
-        <SaveDiscardBar HasChanges="Session.IsDirty"
-                        IsValid="IsValid"
-                        OnSave="SaveAsync"
-                        OnDiscard="Discard" />
+        @if (OnSave.HasDelegate)
+        {
+            <SaveDiscardBar HasChanges="Session.IsDirty"
+                            IsValid="IsValid"
+                            OnSave="SaveAsync"
+                            OnDiscard="Discard" />
+        }
 
         <ToastContainer />
 

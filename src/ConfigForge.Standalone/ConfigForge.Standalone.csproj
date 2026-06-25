@@ -35,6 +35,18 @@
 
   <ItemGroup>
     <Content Include="wwwroot\**" CopyToOutputDirectory="PreserveNewest" />
+    <!--
+      The component styles are owned by ConfigForge.Blazor (single source of truth).
+      A WPF BlazorWebView does not reliably serve "_content/..." RCL assets, so the
+      one stylesheet is linked in and copied to wwwroot at build instead of being
+      duplicated here. index.html references it as "configforge.css".
+    -->
+    <Content
+      Include="..\ConfigForge.Blazor\wwwroot\configforge.css"
+      Link="wwwroot\configforge.css"
+      CopyToOutputDirectory="PreserveNewest"
+      CopyToPublishDirectory="PreserveNewest"
+    />
   </ItemGroup>
 
   <ItemGroup>

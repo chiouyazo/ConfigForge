@@ -1,0 +1,150 @@
+/*
+ * Demo-only chrome for the Sample.Web host: the split editor layout and the
+ * collapsible, resizable JSON/schema panel. The ConfigForge component styles
+ * come from the single source of truth at _content/ConfigForge.Blazor/configforge.css,
+ * which App.razor links alongside this file.
+ */
+
+body {
+    overflow: hidden;
+}
+
+.demo-layout {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.demo-editor {
+    flex: 1;
+    min-width: 0;
+    overflow: auto;
+}
+
+.demo-panel {
+    width: 34rem;
+    min-width: 18rem;
+    max-width: 80vw;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+    background: #0f172a;
+    color: #e2e8f0;
+    border-left: 1px solid #1e293b;
+}
+
+.demo-splitter {
+    flex: 0 0 6px;
+    cursor: col-resize;
+    background: #1e293b;
+}
+
+.demo-splitter:hover,
+.demo-splitter:active {
+    background: #3b82f6;
+}
+
+.demo-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0.75rem;
+    background: #111827;
+    border-bottom: 1px solid #1e293b;
+}
+
+.demo-tabs {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.demo-tab {
+    background: transparent;
+    color: #94a3b8;
+    border: none;
+    padding: 0.35rem 0.7rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+
+.demo-tab.active {
+    background: #1e293b;
+    color: #fff;
+}
+
+.demo-close {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    font-size: 0.95rem;
+}
+
+.demo-actions {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid #1e293b;
+    flex-wrap: wrap;
+}
+
+.demo-actions button {
+    background: #1e293b;
+    color: #e2e8f0;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    padding: 0.35rem 0.7rem;
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+
+.demo-actions button:hover {
+    background: #334155;
+}
+
+.demo-copy {
+    margin-left: auto;
+}
+
+.demo-code {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    margin: 0;
+    padding: 1rem;
+    font-family: "JetBrains Mono", "Fira Code", Consolas, ui-monospace, monospace;
+    font-size: 0.8rem;
+    line-height: 1.55;
+    white-space: pre;
+    color: #a7f3d0;
+}
+
+.demo-open {
+    position: fixed;
+    bottom: 1.25rem;
+    right: 1.25rem;
+    z-index: 20;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    background: var(--cf-primary, #005fa3);
+    color: #fff;
+    border: none;
+    border-radius: var(--cf-radius, 6px);
+    padding: 0.5rem 0.9rem;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-family: inherit;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.demo-open:hover {
+    filter: brightness(1.08);
+}
+
+.demo-open .demo-open-icon {
+    font-family: monospace;
+    font-weight: 700;
+}

@@ -4,7 +4,18 @@
  * re-themes from a single ThemeDefinition.
  */
 
+html,
+body {
+    margin: 0;
+    height: 100%;
+}
+
+#app {
+    height: 100%;
+}
+
 .cf-root {
+    height: 100%;
     color: var(--cf-text-primary);
     background: var(--cf-background);
     font-family: var(--cf-font);
@@ -13,7 +24,8 @@
 .cf-shell {
     display: flex;
     flex-direction: column;
-    min-height: 100%;
+    height: 100%;
+    overflow: hidden;
 }
 
 /* Header */
@@ -43,7 +55,7 @@
     padding: 0.75rem;
     overflow-y: auto;
 }
-.cf-main { flex: 1; padding: 1.25rem; overflow-y: auto; }
+.cf-main { flex: 1; padding: 1.25rem 1.25rem 2.5rem; overflow-y: auto; min-height: 0; }
 
 /* Sidebar navigation */
 .cf-sidebar-nav { display: flex; flex-direction: column; gap: 0.75rem; }
@@ -128,13 +140,6 @@
 
 .cf-checkbox { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
 .cf-checklist { display: flex; flex-direction: column; gap: 0.35rem; }
-
-/* Password strength */
-.cf-strength { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; }
-.cf-strength-bar { height: 0.35rem; width: 6rem; border-radius: var(--cf-radius); background: var(--cf-background); }
-.cf-strength-weak .cf-strength-bar { background: var(--cf-danger); width: 2rem; }
-.cf-strength-medium .cf-strength-bar { background: var(--cf-warning); width: 4rem; }
-.cf-strength-strong .cf-strength-bar { background: var(--cf-success); width: 6rem; }
 
 /* Tags */
 .cf-taglist { display: flex; flex-wrap: wrap; gap: 0.35rem; }
@@ -222,6 +227,48 @@
 .cf-button-danger { background: var(--cf-danger); border-color: var(--cf-danger); color: var(--cf-surface); }
 .cf-button .cf-icon-button, .cf-button [class^="cf-icon-"] { margin-right: 0.35rem; }
 
+/* Code panel (live Config JSON + Schema) */
+.cf-codepanel {
+    flex: 0 0 32rem;
+    min-width: 16rem;
+    max-width: 60vw;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border-left: 1px solid var(--cf-text-secondary);
+    background: var(--cf-surface);
+}
+.cf-codepanel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--cf-text-secondary);
+}
+.cf-codepanel-tabs { display: flex; gap: 0.25rem; }
+.cf-codepanel-tab {
+    background: transparent;
+    border: none;
+    padding: 0.35rem 0.7rem;
+    border-radius: var(--cf-radius);
+    color: var(--cf-text-secondary);
+    font: inherit;
+    cursor: pointer;
+}
+.cf-codepanel-tab.cf-active { background: var(--cf-background); color: var(--cf-text-primary); }
+.cf-codepanel-code {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    margin: 0;
+    padding: 1rem;
+    white-space: pre;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--cf-text-primary);
+}
+
 /* Action and save bars */
 .cf-action-bar { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
 .cf-save-bar {
@@ -232,8 +279,7 @@
     padding: 0.75rem 1.25rem;
     background: var(--cf-surface);
     border-top: 1px solid var(--cf-text-secondary);
-    position: sticky;
-    bottom: 0;
+    flex: 0 0 auto;
 }
 .cf-save-actions { display: flex; gap: 0.5rem; }
 .cf-save-invalid { color: var(--cf-danger); }

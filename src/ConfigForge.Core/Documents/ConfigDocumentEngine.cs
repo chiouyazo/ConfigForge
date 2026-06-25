@@ -121,6 +121,26 @@ public sealed partial class ConfigDocumentEngine : IConfigDocumentEngine
     }
 
     /// <inheritdoc />
+    public string Serialize(ConfigDocument document, ConfigSchema schema)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(schema);
+
+        if (schema.UntrackedKeys.Count == 0)
+        {
+            return Serialize(document);
+        }
+
+        ConfigDocument persisted = document.Clone();
+        foreach (string untracked in schema.UntrackedKeys)
+        {
+            persisted.Remove(untracked);
+        }
+
+        return Serialize(persisted);
+    }
+
+    /// <inheritdoc />
     public ConfigDiff Diff(ConfigDocument original, ConfigDocument modified)
     {
         ArgumentNullException.ThrowIfNull(original);

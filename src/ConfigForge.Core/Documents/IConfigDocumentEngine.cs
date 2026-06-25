@@ -23,6 +23,15 @@ public interface IConfigDocumentEngine
     /// <returns>The indented JSON representation.</returns>
     string Serialize(ConfigDocument document);
 
+    /// <summary>
+    /// Serializes a document to indented JSON for persistence, omitting fields the
+    /// schema marks <c>tracked: false</c> (see <see cref="ConfigSchema.UntrackedKeys"/>).
+    /// </summary>
+    /// <param name="document">The document to serialize.</param>
+    /// <param name="schema">The schema whose untracked keys are stripped.</param>
+    /// <returns>The indented JSON without untracked fields.</returns>
+    string Serialize(ConfigDocument document, ConfigSchema schema);
+
     /// <summary>Computes the differences between two documents.</summary>
     /// <param name="original">The baseline document.</param>
     /// <param name="modified">The modified document.</param>

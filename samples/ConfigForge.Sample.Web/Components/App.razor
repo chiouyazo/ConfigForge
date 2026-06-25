@@ -1,5 +1,3 @@
-@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment Env
-
 <!DOCTYPE html>
 <html lang="en">
 
@@ -8,8 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ConfigForge Demo</title>
     <base href="/" />
-    <link rel="stylesheet" href="configforge.css" />
-    @((MarkupString)$"<style>{CssText}</style>")
+    <link rel="stylesheet" href="_content/ConfigForge.Blazor/configforge.css" />
+    <link rel="stylesheet" href="demo.css" />
     <HeadOutlet />
 </head>
 
@@ -20,10 +18,3 @@
 </body>
 
 </html>
-
-@code {
-    private static string? _css;
-
-    private string CssText =>
-        _css ??= System.IO.File.ReadAllText(System.IO.Path.Combine(Env.WebRootPath, "configforge.css"));
-}

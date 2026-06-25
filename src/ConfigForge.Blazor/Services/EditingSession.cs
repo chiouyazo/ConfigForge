@@ -107,6 +107,7 @@ public sealed class EditingSession : IDisposable
         _fieldEnabled.Clear();
         _fieldErrors.Clear();
 
+        _dirtyTracker.IgnoredKeys = schema.UntrackedKeys;
         _dirtyTracker.Snapshot(document);
         _dirtyTracker.Update(document);
 
