@@ -1,0 +1,26 @@
+services:
+  schema-server:
+    build:
+      context: .
+      dockerfile: samples/ConfigForge.Sample.SchemaServer/Dockerfile
+    # Uncomment to serve your own schemas instead of the baked-in sample:
+    # volumes:
+    #   - /path/to/your/schemas:/app/schemas:ro
+    expose:
+      - "8080"
+
+  configforge:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      # Load schemas from the schema-server's manifest, poll every 60s.
+      ConfigForge__SchemaUrl: http://schema-server:8080/schemas.json
+      ConfigForge__SchemaRefreshSeconds: "60"
+      # Remote-only: ignore the image's baked-in sample schema/plugin folders.
+      ConfigForge__SchemaDirectory: /var/empty
+      ConfigForge__PluginDirectory: /var/empty
+    ports:
+      - "8080:8080"
+    depends_on:
+      - schema-server

@@ -61,6 +61,31 @@ public sealed class AspNetConfigForgeOptions
     public Func<string, Task<string?>>? OnLoad { get; set; }
 
     /// <summary>
+    /// Optional URL of a remote schema manifest. When set, schemas are loaded over
+    /// HTTP(S) from the manifest instead of (or in addition to) the local
+    /// <see cref="SchemaDirectory"/>, which lets a container be pointed at a central
+    /// location with <c>ConfigForge__SchemaUrl=https://…/schemas.json</c>.
+    /// </summary>
+    /// <remarks>
+    /// The manifest is a JSON array. Each entry is either a string URL or an object
+    /// <c>{ "url": "…" }</c>; a relative <c>url</c> is resolved against the manifest
+    /// URL. The schema id is taken from each document's <c>x-cf.id</c>.
+    /// </remarks>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Design",
+        "CA1056:URI-like properties should not be strings",
+        Justification = "Bound from configuration (env/appsettings) as a string for container ergonomics."
+    )]
+    public string? SchemaUrl { get; set; }
+
+    /// <summary>
+    /// How often (seconds) the remote <see cref="SchemaUrl"/> manifest is re-polled
+    /// for changes. Values below 5 are clamped to 5. Ignored when
+    /// <see cref="SchemaUrl"/> is null. Default 60.
+    /// </summary>
+    public int SchemaRefreshSeconds { get; set; } = 60;
+
+    /// <summary>
     /// Opt-in convenience: wires <see cref="OnSave"/> and <see cref="OnLoad"/> to a
     /// <see cref="LocalConfigFileStore"/> that persists each schema's document under
     /// <paramref name="directory"/> and keeps the most recent rotated backups. Hosts

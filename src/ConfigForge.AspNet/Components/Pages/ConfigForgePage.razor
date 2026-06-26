@@ -13,7 +13,7 @@
 @inject IJSRuntime JS
 
 <div class="cf-host">
-    @if (_schemaChoices.Count > 1)
+    @if (_schemaChoices.Count >= 1)
     {
         <div class="cf-host-toolbar">
             <label class="cf-host-field">
@@ -96,7 +96,8 @@
         _hashWired = true;
 
         string slug = await JS.InvokeAsync<string>("configForgeHost.readHash").ConfigureAwait(false);
-        ApplyHashSlug(slug);
+
+        await InvokeAsync(() => ApplyHashSlug(slug)).ConfigureAwait(false);
     }
 
     /// <summary>Invoked from JS when the URL fragment changes (back/forward or manual edit).</summary>

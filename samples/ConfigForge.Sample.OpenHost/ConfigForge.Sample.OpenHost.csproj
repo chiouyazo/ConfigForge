@@ -12,6 +12,7 @@
   <ItemGroup>
     <ProjectReference Include="../../src/ConfigForge.AspNet/ConfigForge.AspNet.csproj" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.0" />
   </ItemGroup>
 
   <ItemGroup>

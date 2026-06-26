@@ -49,7 +49,21 @@
                             @(_copied ? "Copied" : "Copy")
                         </button>
                     </div>
-                    <pre class="cf-codepanel-code"><code>@CurrentCode</code></pre>
+                    @if (_codeView == CodeView.Schema)
+                    {
+                        <pre class="cf-codepanel-code"><code>@CurrentCode</code></pre>
+                    }
+                    else
+                    {
+                        <textarea class="cf-codepanel-editor cf-code"
+                                  spellcheck="false"
+                                  value="@CurrentCode"
+                                  @onchange="OnConfigJsonChangedAsync"></textarea>
+                        @if (_codeError is not null)
+                        {
+                            <p class="cf-codepanel-error" role="alert">@_codeError</p>
+                        }
+                    }
                 </aside>
             }
         </div>

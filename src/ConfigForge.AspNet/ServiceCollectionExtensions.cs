@@ -56,6 +56,12 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<IConfigForgeHostState>(new ConfigForgeHostState(options));
         services.AddHostedService<ConfigForgeDirectoryWatcher>();
 
+        if (!string.IsNullOrEmpty(options.SchemaUrl))
+        {
+            services.AddHttpClient();
+            services.AddHostedService<RemoteSchemaPoller>();
+        }
+
         services.AddRazorComponents().AddInteractiveServerComponents();
 
         return services;

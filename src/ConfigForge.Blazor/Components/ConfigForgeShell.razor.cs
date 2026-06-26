@@ -19,6 +19,7 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
     private bool _disposed;
     private bool _codePanelOpen;
     private bool _copied;
+    private string? _codeError;
     private CodeView _codeView = CodeView.Config;
 
     private enum CodeView
@@ -105,10 +106,12 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
 
     private bool HasSchemaJson => !string.IsNullOrEmpty(SchemaJson);
 
+    // The Config tab is editable and shows the full live document; the Schema tab is
+    // read-only. Editing the Config JSON parses it straight back into the form.
     private string CurrentCode =>
         _codeView == CodeView.Schema && HasSchemaJson
             ? SchemaJson!
-            : Engine.Serialize(Session.Document, Schema);
+            : Engine.Serialize(Session.Document);
 
     private IReadOnlyList<CategoryElement> Categories => Schema.Categories;
 
@@ -192,6 +195,28 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
     {
         _codeView = view;
         _copied = false;
+        _codeError = null;
+    }
+
+    /// <summary>
+    /// Parses edited Config JSON straight back into the live document, so an existing
+    /// config can be pasted into the panel and drive the form. Invalid JSON shows an
+    /// inline error and leaves the current form untouched.
+    /// </summary>
+    private Task OnConfigJsonChangedAsync(ChangeEventArgs args)
+    {
+        string json = args.Value as string ?? string.Empty;
+        ConfigDocumentParseResult result = Engine.Parse(json, Schema);
+
+        if (result.JsonError is not null)
+        {
+            _codeError = result.JsonError;
+            return Task.CompletedTask;
+        }
+
+        _codeError = null;
+        Session.ReplaceDocument(result.Document, result);
+        return Task.CompletedTask;
     }
 
     private async Task CopyCodeAsync()

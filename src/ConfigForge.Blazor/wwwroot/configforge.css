@@ -268,6 +268,31 @@ body {
     line-height: 1.5;
     color: var(--cf-text-primary);
 }
+.cf-codepanel-editor {
+    flex: 1;
+    min-height: 0;
+    resize: none;
+    margin: 0;
+    padding: 1rem;
+    border: none;
+    outline: none;
+    background: var(--cf-surface);
+    color: var(--cf-text-primary);
+    font-family: "JetBrains Mono", "Fira Code", Consolas, ui-monospace, monospace;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    white-space: pre;
+    tab-size: 2;
+}
+.cf-codepanel-editor:focus { outline: 2px solid var(--cf-primary); outline-offset: -2px; }
+.cf-codepanel-error {
+    margin: 0;
+    padding: 0.5rem 0.75rem;
+    background: var(--cf-surface);
+    border-top: 1px solid var(--cf-danger);
+    color: var(--cf-danger);
+    font-size: 0.8rem;
+}
 
 /* Action and save bars */
 .cf-action-bar { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }

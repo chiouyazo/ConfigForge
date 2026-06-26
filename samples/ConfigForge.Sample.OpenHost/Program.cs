@@ -7,16 +7,25 @@ Log.Logger = new LoggerConfiguration().WriteTo.Console().CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Host.UseWindowsService();
+
 builder.Services.AddConfigForge(options =>
 {
-    options.ApplicationTitle = "ConfigForge Open Host";
-    options.SchemaDirectory = Path.Combine(builder.Environment.ContentRootPath, "schemas");
-    options.PluginDirectory = Path.Combine(builder.Environment.ContentRootPath, "plugins");
+    string contentRoot = builder.Environment.ContentRootPath;
+    string Resolve(string key, string fallback) =>
+        builder.Configuration[$"ConfigForge:{key}"] ?? Path.Combine(contentRoot, fallback);
 
-    options.UseLocalFileStore(
-        Path.Combine(builder.Environment.ContentRootPath, "configs"),
-        keepBackups: 10
-    );
+    options.ApplicationTitle =
+        builder.Configuration["ConfigForge:ApplicationTitle"] ?? "ConfigForge Open Host";
+    options.SchemaDirectory = Resolve("SchemaDirectory", "schemas");
+    options.PluginDirectory = Resolve("PluginDirectory", "plugins");
+
+    if (int.TryParse(builder.Configuration["ConfigForge:SchemaRefreshSeconds"], out int refresh))
+    {
+        options.SchemaRefreshSeconds = refresh;
+    }
+
+    options.UseLocalFileStore(Resolve("ConfigDirectory", "configs"), keepBackups: 10);
 });
 
 var app = builder.Build();

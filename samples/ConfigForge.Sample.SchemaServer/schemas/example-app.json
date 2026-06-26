@@ -1,0 +1,27 @@
+{
+  "schema": {
+    "type": "object",
+    "properties": {
+      "ServiceName": { "type": "string", "title": "Service name" },
+      "Port": { "type": "integer", "minimum": 1, "maximum": 65535, "default": 8080, "title": "Port" },
+      "Logging": {
+        "type": "object",
+        "properties": {
+          "Level": {
+            "type": "string",
+            "enum": ["Trace", "Debug", "Information", "Warning", "Error"],
+            "default": "Information",
+            "title": "Log level"
+          },
+          "ToConsole": { "type": "boolean", "default": true, "title": "Log to console" }
+        }
+      }
+    },
+    "required": ["ServiceName"]
+  },
+  "x-cf": {
+    "id": "example-app",
+    "name": "Example App",
+    "version": "1.0.0"
+  }
+}
