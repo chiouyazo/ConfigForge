@@ -80,6 +80,7 @@ public sealed class DirtyStateTracker : IDirtyStateTracker
             foreach (string ignored in IgnoredKeys)
             {
                 effective.Remove(ignored);
+                PruneEmptyAncestors(effective, ignored);
             }
         }
 
@@ -91,6 +92,31 @@ public sealed class DirtyStateTracker : IDirtyStateTracker
 
         return map;
     }
+
+    private static void PruneEmptyAncestors(ConfigDocument document, string path)
+    {
+        string[] segments = path.Split('/');
+        for (int i = segments.Length - 1; i >= 1; i--)
+        {
+            string ancestor = string.Join('/', segments, 0, i);
+            if (document.TryGetValue(ancestor, out object? value) && IsEmptyContainer(value))
+            {
+                document.Remove(ancestor);
+            }
+            else
+            {
+                break;
+            }
+        }
+    }
+
+    private static bool IsEmptyContainer(object? value) =>
+        value switch
+        {
+            IDictionary<string, object?> dict => dict.Count == 0,
+            IList<object?> list => list.Count == 0,
+            _ => false,
+        };
 
     private void SetDirtyKeys(HashSet<string> dirty)
     {
