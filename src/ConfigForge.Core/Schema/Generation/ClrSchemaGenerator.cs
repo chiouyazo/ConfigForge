@@ -787,14 +787,16 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
                     ResolvePropertyName(p, options),
                     p.GetCustomAttribute<CfGroupAttribute>()?.Group ?? Options(p)?.Group,
                     p.GetCustomAttribute<CfCategoryAttribute>()?.Category ?? Options(p)?.Category,
-                    p.GetCustomAttribute<CfSectionAttribute>()?.Section ?? Options(p)?.Section
+                    p.GetCustomAttribute<CfSectionAttribute>()?.Section ?? Options(p)?.Section,
+                    p.GetCustomAttribute<CfRowAttribute>()?.Row
                 )),
         ];
 
         bool anyGroup = roots.Exists(r => r.GroupName is not null);
         bool anyCategory = roots.Exists(r => r.CategoryName is not null);
         bool anySection = roots.Exists(r => r.Section is not null);
-        if (!anyGroup && !anyCategory && !anySection)
+        bool anyRow = roots.Exists(r => r.Row is not null);
+        if (!anyGroup && !anyCategory && !anySection && !anyRow)
         {
             return null;
         }
@@ -884,7 +886,8 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
     /// <summary>
     /// Builds a category's UI elements, grouping members that share a <c>[CfSection]</c>
     /// into a titled <c>Group</c> box (in first-appearance order); sectionless members
-    /// render as bare controls.
+    /// render as bare controls. Consecutive members that share a <c>[CfRow]</c> id within the
+    /// same target are wrapped in a <c>HorizontalLayout</c> so they render side by side.
     /// </summary>
     private static JsonArray BuildCategoryElements(
         List<CategoryMember> members,
@@ -894,24 +897,68 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
         JsonArray elements = [];
         Dictionary<string, JsonArray> sections = new(StringComparer.Ordinal);
 
-        foreach (CategoryMember member in members)
+        // An open horizontal run: the target list it belongs to, its row id, and its controls.
+        JsonArray? rowTarget = null;
+        string? rowId = null;
+        JsonArray? rowElements = null;
+
+        void FlushRow()
         {
-            if (member.Section is null)
+            if (rowElements is not null && rowTarget is not null)
             {
-                AppendLeafControls(elements, properties, member.Name);
-                continue;
+                rowTarget.Add(HorizontalLayout(rowElements));
             }
 
-            if (!sections.TryGetValue(member.Section, out JsonArray? groupElements))
+            rowTarget = null;
+            rowId = null;
+            rowElements = null;
+        }
+
+        foreach (CategoryMember member in members)
+        {
+            JsonArray target;
+            if (member.Section is null)
+            {
+                target = elements;
+            }
+            else if (sections.TryGetValue(member.Section, out JsonArray? groupElements))
+            {
+                target = groupElements;
+            }
+            else
             {
                 groupElements = [];
                 sections[member.Section] = groupElements;
                 elements.Add(Group(member.Section, groupElements));
+                target = groupElements;
             }
 
-            AppendLeafControls(groupElements, properties, member.Name);
+            if (member.Row is { Length: > 0 } row)
+            {
+                if (
+                    !(
+                        rowElements is not null
+                        && rowTarget == target
+                        && string.Equals(rowId, row, StringComparison.Ordinal)
+                    )
+                )
+                {
+                    FlushRow();
+                    rowTarget = target;
+                    rowId = row;
+                    rowElements = [];
+                }
+
+                AppendLeafControls(rowElements!, properties, member.Name);
+            }
+            else
+            {
+                FlushRow();
+                AppendLeafControls(target, properties, member.Name);
+            }
         }
 
+        FlushRow();
         return elements;
     }
 
@@ -965,11 +1012,15 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
     private static JsonObject Categorization(JsonArray elements) =>
         new() { ["type"] = "Categorization", ["elements"] = elements };
 
+    private static JsonObject HorizontalLayout(JsonArray elements) =>
+        new() { ["type"] = "HorizontalLayout", ["elements"] = elements };
+
     private readonly record struct CategoryMember(
         string Name,
         string? GroupName,
         string? CategoryName,
-        string? Section
+        string? Section,
+        string? Row
     );
 
     /// <summary>

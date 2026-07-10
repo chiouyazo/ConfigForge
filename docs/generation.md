@@ -85,6 +85,7 @@ All of these live in `ConfigForge.Abstractions.Annotations`. They only annotate;
 | `[CfVisibleWhen("path", value)]` | Show this field only while another field equals `value`. |
 | `[CfCategoryMeta("cat", Icon=…, Description=…)]` | **On the type.** Icon/description for a category. Repeatable. |
 | `[CfAction("id", Label=…, Category=…, Icon=…)]` | **On the type.** Declares an action button; the handler is registered in code with the same id. Repeatable. |
+| `[CfRow("id")]` | Lay adjacent fields sharing the id side by side (a `HorizontalLayout`) instead of stacked. |
 
 ### Validation: use standard DataAnnotations (no ConfigForge attribute needed)
 
@@ -214,10 +215,10 @@ This is the escape hatch for labelling or hinting fields on types you can't anno
 
 ### What still needs the overlay (no attribute)
 
-Most things now have an attribute (actions, category icons/descriptions, and conditional enable/show rules are all attributes — see the table above). What remains overlay-only:
+Actions, category icons/descriptions, conditional enable/show rules, and side-by-side rows are all attributes now (see the table above). What remains overlay-only:
 
 - **Labels/hints on library types you can't annotate** — the original reason the overlay exists. Use `x-cf.controls[path]` and `schema.properties.…title`.
-- **Side-by-side layout** (`HorizontalLayout`) → `uiSchema`. ⚠️ The overlay **replaces** arrays rather than merging them, so hand-writing `uiSchema` discards the generated layout for that branch. Cosmetic; usually not worth it.
+- **Bespoke `uiSchema` structure** beyond what the attributes express (arbitrary nesting of layouts, etc.). ⚠️ The overlay **replaces** arrays rather than merging them, so hand-writing `uiSchema` discards the generated layout for that branch — rarely worth it.
 
 Note that `[CfEnableWhen]`/`[CfVisibleWhen]` emit an **inline** rule on the property (`x-rule`), which the parser reads per-field — so conditional rules survive the overlay merge and don't require hand-writing `uiSchema` (the array-replace trap the overlay otherwise falls into).
 

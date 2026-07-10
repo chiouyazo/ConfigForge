@@ -492,4 +492,47 @@ public sealed class ClrSchemaGeneratorTests
         Assert.Equal(RuleEffect.Show, rule.Effect);
         Assert.Equal("#/properties/mode", rule.Condition.Scope);
     }
+
+    private sealed record RowConfig
+    {
+        [CfRow("retry")]
+        public int RetryCount { get; init; }
+
+        [CfRow("retry")]
+        public int RetryDelaySeconds { get; init; }
+
+        [CfRow("retry")]
+        public int TimeoutSeconds { get; init; }
+
+        public string? Other { get; init; }
+    }
+
+    [Fact]
+    public void CfRow_WrapsAdjacentFieldsInHorizontalLayout()
+    {
+        Assert.NotNull(new RowConfig());
+        string json = new ClrSchemaGenerator().Generate<RowConfig>(
+            new SchemaGenerationOptions { Id = "row" }
+        );
+
+        JsonNode ui = JsonNode.Parse(json)!["uiSchema"]!;
+        JsonArray categoryElements = (JsonArray)ui["elements"]![0]!["elements"]!;
+
+        JsonNode row = categoryElements.First(e =>
+            string.Equals(
+                e!["type"]?.GetValue<string>(),
+                "HorizontalLayout",
+                StringComparison.Ordinal
+            )
+        )!;
+        JsonArray rowControls = (JsonArray)row["elements"]!;
+
+        Assert.Equal(3, rowControls.Count);
+        Assert.All(rowControls, c => Assert.Equal("Control", c!["type"]!.GetValue<string>()));
+        // The non-row field is not swept into the horizontal layout.
+        Assert.Contains(
+            categoryElements,
+            e => string.Equals(e!["type"]?.GetValue<string>(), "Control", StringComparison.Ordinal)
+        );
+    }
 }
