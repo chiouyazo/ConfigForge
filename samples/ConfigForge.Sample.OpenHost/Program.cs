@@ -9,7 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseWindowsService();
 
-builder.Services.AddConfigForge(options =>
+builder.AddConfigForge(options =>
 {
     string contentRoot = builder.Environment.ContentRootPath;
     string Resolve(string key, string fallback) =>
@@ -17,6 +17,9 @@ builder.Services.AddConfigForge(options =>
 
     options.ApplicationTitle =
         builder.Configuration["ConfigForge:ApplicationTitle"] ?? "ConfigForge Open Host";
+    // A multi-schema demo host: opt into the schema picker and code panel.
+    options.ShowSchemaPicker = true;
+    options.ShowCodePanel = true;
     options.SchemaDirectory = Resolve("SchemaDirectory", "schemas");
     options.PluginDirectory = Resolve("PluginDirectory", "plugins");
 

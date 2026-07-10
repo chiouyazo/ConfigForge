@@ -207,7 +207,8 @@ public sealed partial class JsonFormsSchemaParser : IJsonFormsSchemaParser
         JsonObject objectSchema,
         JsonObject rootSchema,
         JsonObject controls,
-        string prefix
+        string prefix,
+        string? inheritedSection = null
     )
     {
         List<FieldDefinition> fields = [];
@@ -229,14 +230,29 @@ public sealed partial class JsonFormsSchemaParser : IJsonFormsSchemaParser
             string key = prefix.Length == 0 ? property.Key : $"{prefix}/{property.Key}";
             JsonObject control = controls[key] as JsonObject ?? [];
 
-            if (string.IsNullOrEmpty(GetString(control, "type")) && IsPlainObject(propSchema))
+            bool hasExplicitControl =
+                !string.IsNullOrEmpty(GetString(control, "type"))
+                || !string.IsNullOrEmpty(GetString(propSchema, "x-control"));
+            if (!hasExplicitControl && IsPlainObject(propSchema))
             {
-                fields.AddRange(BuildObjectFields(propSchema, rootSchema, controls, key));
+                // Flattened nested objects: children inherit the parent's section so a
+                // sectioned object property still lands in the right tab/group.
+                string? childSection = GetString(propSchema, "x-section") ?? inheritedSection;
+                fields.AddRange(
+                    BuildObjectFields(propSchema, rootSchema, controls, key, childSection)
+                );
                 continue;
             }
 
             fields.Add(
-                BuildField(key, propSchema, control, rootSchema, required.Contains(property.Key))
+                BuildField(
+                    key,
+                    propSchema,
+                    control,
+                    rootSchema,
+                    required.Contains(property.Key),
+                    inheritedSection
+                )
             );
         }
 
@@ -248,13 +264,16 @@ public sealed partial class JsonFormsSchemaParser : IJsonFormsSchemaParser
         JsonObject propSchema,
         JsonObject control,
         JsonObject rootSchema,
-        bool required
+        bool required,
+        string? inheritedSection = null
     )
     {
         string controlType = InferControlType(propSchema, control, rootSchema);
 
         IReadOnlyList<FieldDefinition> children = [];
         FieldDefinition? valueField = null;
+        string? discriminatorKey = null;
+        IReadOnlyList<OneOfVariant> oneOfVariants = [];
 
         if (
             string.Equals(controlType, "arrayobject", StringComparison.Ordinal)
@@ -271,6 +290,13 @@ public sealed partial class JsonFormsSchemaParser : IJsonFormsSchemaParser
         {
             valueField = BuildValueField(valueSchema, rootSchema);
         }
+        else if (
+            string.Equals(controlType, "oneof", StringComparison.Ordinal)
+            && propSchema["oneOf"] is JsonArray variantNodes
+        )
+        {
+            (discriminatorKey, oneOfVariants) = BuildOneOfVariants(variantNodes, rootSchema);
+        }
 
         return new FieldDefinition
         {
@@ -278,22 +304,100 @@ public sealed partial class JsonFormsSchemaParser : IJsonFormsSchemaParser
             ControlType = controlType,
             Title = GetString(propSchema, "title"),
             Description = GetString(propSchema, "description"),
-            Tooltip = GetString(control, "tooltip"),
-            Placeholder = GetString(control, "placeholder"),
-            Unit = GetString(control, "unit"),
+            Tooltip = GetString(control, "tooltip") ?? GetString(propSchema, "x-tooltip"),
+            Placeholder =
+                GetString(control, "placeholder") ?? GetString(propSchema, "x-placeholder"),
+            Unit = GetString(control, "unit") ?? GetString(propSchema, "x-unit"),
             Required = required,
             ReadOnly = GetBool(propSchema, "readOnly") ?? false,
             DefaultValue = propSchema.TryGetPropertyValue("default", out JsonNode? def)
                 ? JsonValueHelper.FromElement(def.Deserialize<JsonElement>())
                 : null,
-            LoaderId = GetString(control, "loaderId"),
-            ValidatorId = GetString(control, "validatorId"),
+            LoaderId = GetString(control, "loaderId") ?? GetString(propSchema, "x-loader"),
+            ValidatorId = GetString(control, "validatorId") ?? GetString(propSchema, "x-validator"),
             SchemaConstraints = ReadConstraints(propSchema),
             Rules = [],
-            Tracked = GetBool(control, "tracked") ?? true,
+            Tracked = GetBool(control, "tracked") ?? GetBool(propSchema, "x-tracked") ?? true,
             Children = children,
             ValueField = valueField,
+            KeyFormat = GetString(control, "keyFormat") ?? GetString(propSchema, "x-key-format"),
+            Section =
+                GetString(control, "section")
+                ?? GetString(propSchema, "x-section")
+                ?? inheritedSection,
+            DiscriminatorKey = discriminatorKey,
+            OneOfVariants = oneOfVariants,
         };
+    }
+
+    /// <summary>
+    /// Parses a schema <c>oneOf</c> into selectable variants. The discriminator is the
+    /// property that carries a <c>const</c> in each variant (e.g. <c>Type</c>); its
+    /// const value selects the variant and is excluded from the variant's fields.
+    /// </summary>
+    private static (
+        string? DiscriminatorKey,
+        IReadOnlyList<OneOfVariant> Variants
+    ) BuildOneOfVariants(JsonArray variantNodes, JsonObject rootSchema)
+    {
+        string? discriminatorKey = null;
+        List<OneOfVariant> variants = [];
+
+        foreach (JsonNode? node in variantNodes)
+        {
+            if (ResolveRef(node as JsonObject, rootSchema) is not { } variantSchema)
+            {
+                continue;
+            }
+
+            if (variantSchema["properties"] is not JsonObject properties)
+            {
+                continue;
+            }
+
+            (string key, string value)? discriminator = FindDiscriminator(properties);
+            if (discriminator is null)
+            {
+                continue;
+            }
+
+            discriminatorKey ??= discriminator.Value.key;
+
+            List<FieldDefinition> children =
+            [
+                .. BuildObjectFields(variantSchema, rootSchema, [], string.Empty)
+                    .Where(f =>
+                        !string.Equals(f.Key, discriminator.Value.key, StringComparison.Ordinal)
+                    ),
+            ];
+
+            variants.Add(
+                new OneOfVariant
+                {
+                    DiscriminatorValue = discriminator.Value.value,
+                    Label = discriminator.Value.value,
+                    Children = children,
+                }
+            );
+        }
+
+        return (discriminatorKey, variants);
+    }
+
+    private static (string key, string value)? FindDiscriminator(JsonObject properties)
+    {
+        foreach (KeyValuePair<string, JsonNode?> property in properties)
+        {
+            if (
+                property.Value is JsonObject prop
+                && prop["const"]?.GetValueKind() == JsonValueKind.String
+            )
+            {
+                return (property.Key, prop["const"]!.GetValue<string>());
+            }
+        }
+
+        return null;
     }
 
     /// <summary>Builds the per-entry value template for a <c>map</c> control.</summary>
@@ -377,7 +481,9 @@ public sealed partial class JsonFormsSchemaParser : IJsonFormsSchemaParser
 
     /// <summary>
     /// Determines the control type. An explicit <c>x-cf.controls[key].type</c>
-    /// always wins. Otherwise inference runs:
+    /// always wins, then an inline <c>x-control</c> keyword on the property schema
+    /// (which, unlike the controls map, is carried into oneof variants, array items,
+    /// and map values). Otherwise inference runs:
     /// boolean → checkbox; string with format date/date-time/time/color →
     /// the matching control; string with enum or a loaderId → select; array of
     /// enum strings → checklist; array of strings → taglist; array of objects →
@@ -391,10 +497,15 @@ public sealed partial class JsonFormsSchemaParser : IJsonFormsSchemaParser
         JsonObject rootSchema
     )
     {
-        string? explicitType = GetString(control, "type");
+        string? explicitType = GetString(control, "type") ?? GetString(propSchema, "x-control");
         if (!string.IsNullOrEmpty(explicitType))
         {
             return explicitType;
+        }
+
+        if (propSchema["oneOf"] is JsonArray)
+        {
+            return "oneof";
         }
 
         string? type = GetString(propSchema, "type");
@@ -575,6 +686,9 @@ public sealed partial class JsonFormsSchemaParser : IJsonFormsSchemaParser
             Icon = GetString(meta, "icon"),
             Description = GetString(meta, "description"),
             Elements = elements,
+            CollectionKey = GetString(meta, "collection"),
+            CollectionEntryLabelKey = GetString(meta, "collectionLabel"),
+            CollectionAddLabel = GetString(meta, "collectionAddLabel"),
         };
     }
 

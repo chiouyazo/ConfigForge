@@ -75,9 +75,26 @@ public sealed partial class ConfigDocumentGenerator : IConfigDocumentGenerator
                 };
             case "object":
                 return BuildObjectExample(field.Children);
+            case "oneof":
+                return BuildOneOfExample(field);
             default:
                 return ExampleValue(field);
         }
+    }
+
+    private static Dictionary<string, object?> BuildOneOfExample(FieldDefinition field)
+    {
+        OneOfVariant? variant = field.OneOfVariants.Count > 0 ? field.OneOfVariants[0] : null;
+        Dictionary<string, object?> obj = variant is null
+            ? new(StringComparer.Ordinal)
+            : BuildObjectExample(variant.Children);
+
+        if (field.DiscriminatorKey is not null && variant is not null)
+        {
+            obj[field.DiscriminatorKey] = variant.DiscriminatorValue;
+        }
+
+        return obj;
     }
 
     private static Dictionary<string, object?> BuildObjectExample(

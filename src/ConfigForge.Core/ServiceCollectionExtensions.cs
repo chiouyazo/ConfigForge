@@ -2,6 +2,7 @@ using ConfigForge.Abstractions;
 using ConfigForge.Core.Documents;
 using ConfigForge.Core.Plugins;
 using ConfigForge.Core.Schema;
+using ConfigForge.Core.Schema.Generation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -13,9 +14,9 @@ namespace ConfigForge.Core;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers the ConfigForge core services: schema parser, rule evaluator,
-    /// document engine, document generator, plugin registry/catalog, plugin
-    /// loader, and the dirty-state tracker.
+    /// Registers the ConfigForge core services: schema parser, CLR schema
+    /// generator, rule evaluator, document engine, document generator, plugin
+    /// registry/catalog, plugin loader, and the dirty-state tracker.
     /// </summary>
     /// <param name="services">The service collection to add to.</param>
     /// <returns>The same collection, for chaining.</returns>
@@ -24,6 +25,7 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.TryAddSingleton<IJsonFormsSchemaParser, JsonFormsSchemaParser>();
+        services.TryAddSingleton<IClrSchemaGenerator, ClrSchemaGenerator>();
         services.TryAddSingleton<IJsonFormsRuleEvaluator, JsonFormsRuleEvaluator>();
         services.TryAddSingleton<IConfigDocumentEngine, ConfigDocumentEngine>();
         services.TryAddSingleton<IConfigDocumentGenerator, ConfigDocumentGenerator>();

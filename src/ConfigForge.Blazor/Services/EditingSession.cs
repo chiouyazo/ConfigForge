@@ -22,6 +22,7 @@ public sealed class EditingSession : IDisposable
     private readonly Dictionary<string, bool> _fieldEnabled = new(StringComparer.Ordinal);
 
     private readonly Dictionary<string, string?> _fieldErrors = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _selectedEntries = new(StringComparer.Ordinal);
     private readonly List<ToastMessage> _toasts = [];
 
     private CancellationTokenSource _categoryCts = new();
@@ -106,6 +107,7 @@ public sealed class EditingSession : IDisposable
         _fieldLoading.Clear();
         _fieldEnabled.Clear();
         _fieldErrors.Clear();
+        _selectedEntries.Clear();
 
         _dirtyTracker.IgnoredKeys = schema.UntrackedKeys;
         _dirtyTracker.Snapshot(document);
@@ -149,6 +151,87 @@ public sealed class EditingSession : IDisposable
         ActiveCategoryIndex = index;
         ResetCategoryToken();
         RaiseStateChanged();
+    }
+
+    /// <summary>
+    /// Returns the entry key currently selected within a collection category's map
+    /// (see <see cref="CategoryElement.CollectionKey"/>), or null when none is selected.
+    /// </summary>
+    /// <param name="collectionKey">The map field key backing the collection category.</param>
+    /// <returns>The selected entry key, or null.</returns>
+    public string? GetSelectedEntry(string collectionKey) =>
+        _selectedEntries.TryGetValue(collectionKey, out string? entry) ? entry : null;
+
+    /// <summary>Selects an entry within a collection category and notifies subscribers.</summary>
+    /// <param name="collectionKey">The map field key backing the collection category.</param>
+    /// <param name="entryKey">The entry key to select, or null to clear the selection.</param>
+    public void SetSelectedEntry(string collectionKey, string? entryKey)
+    {
+        ArgumentNullException.ThrowIfNull(collectionKey);
+        if (entryKey is null)
+        {
+            _selectedEntries.Remove(collectionKey);
+        }
+        else
+        {
+            _selectedEntries[collectionKey] = entryKey;
+        }
+
+        RaiseStateChanged();
+    }
+
+    /// <summary>
+    /// Adds an entry to a map field and returns its key. The single place map entries are
+    /// created, so the map control and the collection sidebar stay consistent (keyless maps
+    /// get a generated GUID; keyed maps get a unique <c>keyN</c>).
+    /// </summary>
+    /// <param name="fieldKey">The map field key.</param>
+    /// <param name="keyless">True for a uuid-keyed map (generate a GUID the user never sees).</param>
+    /// <param name="value">The entry value (an object dictionary, or null for a scalar value).</param>
+    /// <returns>The key of the added entry.</returns>
+    public string AddMapEntry(string fieldKey, bool keyless, object? value)
+    {
+        ArgumentNullException.ThrowIfNull(fieldKey);
+        Dictionary<string, object?> map = ReadMapCopy(fieldKey);
+        string entryKey = keyless ? Guid.NewGuid().ToString() : UniqueMapKey(map);
+        map[entryKey] = value;
+        SetFieldValue(fieldKey, map);
+        return entryKey;
+    }
+
+    /// <summary>Removes an entry from a map field. Returns true when an entry was removed.</summary>
+    /// <param name="fieldKey">The map field key.</param>
+    /// <param name="entryKey">The entry key to remove.</param>
+    /// <returns>True when the entry existed and was removed.</returns>
+    public bool RemoveMapEntry(string fieldKey, string entryKey)
+    {
+        ArgumentNullException.ThrowIfNull(fieldKey);
+        Dictionary<string, object?> map = ReadMapCopy(fieldKey);
+        if (!map.Remove(entryKey))
+        {
+            return false;
+        }
+
+        SetFieldValue(fieldKey, map);
+        return true;
+    }
+
+    private Dictionary<string, object?> ReadMapCopy(string fieldKey) =>
+        Document[fieldKey] is IDictionary<string, object?> map
+            ? new Dictionary<string, object?>(map, StringComparer.Ordinal)
+            : new Dictionary<string, object?>(StringComparer.Ordinal);
+
+    private static string UniqueMapKey(Dictionary<string, object?> map)
+    {
+        int index = map.Count + 1;
+        string candidate = $"key{index}";
+        while (map.ContainsKey(candidate))
+        {
+            index++;
+            candidate = $"key{index}";
+        }
+
+        return candidate;
     }
 
     /// <summary>Reads a field's current raw value.</summary>

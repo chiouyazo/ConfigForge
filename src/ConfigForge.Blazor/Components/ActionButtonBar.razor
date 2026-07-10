@@ -97,12 +97,31 @@
         _busy = true;
         try
         {
-            ActionContext context = new(Session, Services);
+            // In a collection category, actions operate on the selected entry: expose its path
+            // as CurrentFieldKey so the handler knows which entry (e.g. which shop) it runs for.
+            ActionContext context = new(Session, Services, SelectedEntryFieldKey());
             await Dispatcher.DispatchActionAsync(actionId, context).ConfigureAwait(false);
         }
         finally
         {
             _busy = false;
         }
+    }
+
+    private string? SelectedEntryFieldKey()
+    {
+        ConfigSchema? schema = Session.Schema;
+        if (
+            schema is not null
+            && Session.ActiveCategoryIndex >= 0
+            && Session.ActiveCategoryIndex < schema.Categories.Count
+            && schema.Categories[Session.ActiveCategoryIndex].CollectionKey is { Length: > 0 } key
+            && Session.GetSelectedEntry(key) is { Length: > 0 } entry
+        )
+        {
+            return $"{key}/{entry}";
+        }
+
+        return null;
     }
 }

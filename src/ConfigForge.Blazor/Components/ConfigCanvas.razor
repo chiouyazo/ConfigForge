@@ -27,6 +27,21 @@
         {
             <p class="cf-empty">No category is selected.</p>
         }
+        else if (ActiveCategory.CollectionKey is { Length: > 0 })
+        {
+            @if (!string.IsNullOrEmpty(ActiveCategory.Description))
+            {
+                <p class="cf-category-description">@ActiveCategory.Description</p>
+            }
+            @if (SelectedEntryField is { } entryField)
+            {
+                <FieldRenderer Field="entryField" />
+            }
+            else
+            {
+                <p class="cf-empty">Select an entry from the sidebar, or add one.</p>
+            }
+        }
         else
         {
             @if (!string.IsNullOrEmpty(ActiveCategory.Description))
@@ -80,4 +95,24 @@
             : null;
 
     private IReadOnlyList<string> UnknownKeys => Session.ParseResult?.UnknownKeys ?? [];
+
+    // For a collection category, the value-template field rebased onto the selected entry's
+    // path (e.g. shops/{guid}). Null when nothing is selected or the map has no value template.
+    private FieldDefinition? SelectedEntryField
+    {
+        get
+        {
+            if (
+                ActiveCategory?.CollectionKey is { Length: > 0 } collectionKey
+                && Session.GetSelectedEntry(collectionKey) is { Length: > 0 } entryKey
+                && Schema.Fields.TryGetValue(collectionKey, out FieldDefinition? mapField)
+                && mapField.ValueField is { } template
+            )
+            {
+                return template.WithKey($"{collectionKey}/{entryKey}");
+            }
+
+            return null;
+        }
+    }
 }

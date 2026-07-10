@@ -14,17 +14,25 @@ public sealed class ActionContext : IActionContext
     /// <summary>Creates an action context over the given session and services.</summary>
     /// <param name="session">The editing session providing state.</param>
     /// <param name="services">The host service provider exposed to handlers.</param>
-    public ActionContext(EditingSession session, IServiceProvider services)
+    public ActionContext(
+        EditingSession session,
+        IServiceProvider services,
+        string? currentFieldKey = null
+    )
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(services);
 
         _session = session;
         Services = services;
+        CurrentFieldKey = currentFieldKey ?? string.Empty;
     }
 
     /// <inheritdoc />
     public string this[string fieldKey] => _session.Document.GetString(fieldKey);
+
+    /// <inheritdoc />
+    public string CurrentFieldKey { get; }
 
     /// <inheritdoc />
     public IServiceProvider Services { get; }

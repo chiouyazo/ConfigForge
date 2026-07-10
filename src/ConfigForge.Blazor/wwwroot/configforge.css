@@ -42,6 +42,24 @@ body {
 .cf-header-left { flex: 1; }
 .cf-header-center { flex: 1; justify-content: center; }
 .cf-header-right { flex: 1; justify-content: flex-end; }
+/* Icon-only header action (host-supplied SVG) with a hover affordance. */
+.cf-header-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 999px;
+    color: var(--cf-text-secondary);
+    cursor: pointer;
+    transition: background var(--cf-transition, 0.15s), color var(--cf-transition, 0.15s), transform var(--cf-transition, 0.15s);
+}
+.cf-header-icon:hover {
+    background: color-mix(in srgb, var(--cf-primary) 12%, transparent);
+    color: var(--cf-primary);
+    transform: translateY(-1px);
+}
+.cf-header-icon svg { width: 1.4rem; height: 1.4rem; display: block; fill: currentColor; }
 .cf-title { font-size: 1.15rem; margin: 0; color: var(--cf-text-primary); }
 .cf-subtitle { font-size: 0.8rem; margin: 0; color: var(--cf-text-secondary); }
 .cf-logo { max-height: 2.25rem; max-width: 12rem; }
@@ -78,6 +96,76 @@ body {
 .cf-category-item:hover { background: var(--cf-background); }
 .cf-category-item.cf-active { background: var(--cf-primary); color: var(--cf-surface); }
 .cf-category-icon { width: 1.25rem; text-align: center; }
+
+/* Collection categories: map entries listed as selectable sub-items in the sidebar */
+.cf-collection-list {
+    list-style: none;
+    margin: 0.125rem 0 0.25rem;
+    padding: 0 0 0 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.0625rem;
+    border-left: 1px solid var(--cf-background);
+    margin-left: 0.5rem;
+}
+.cf-collection-item {
+    display: flex;
+    align-items: center;
+    border-radius: var(--cf-radius);
+}
+.cf-collection-item:hover { background: var(--cf-background); }
+.cf-collection-item.cf-active { background: var(--cf-primary); }
+.cf-collection-item.cf-active .cf-collection-select { color: var(--cf-surface); }
+.cf-collection-item.cf-active .cf-collection-remove { color: var(--cf-surface); }
+.cf-collection-select {
+    flex: 1;
+    min-width: 0;
+    padding: 0.375rem 0.5rem;
+    border: none;
+    background: transparent;
+    color: var(--cf-text-primary);
+    font: inherit;
+    font-size: 0.9rem;
+    text-align: left;
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.cf-collection-remove {
+    flex: 0 0 auto;
+    padding: 0 0.5rem;
+    border: none;
+    background: transparent;
+    color: var(--cf-text-secondary);
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.12s ease;
+}
+.cf-collection-item:hover .cf-collection-remove,
+.cf-collection-item.cf-active .cf-collection-remove { opacity: 1; }
+.cf-collection-remove:hover { color: var(--cf-danger); }
+.cf-collection-item.cf-active .cf-collection-remove:hover { color: var(--cf-surface); }
+.cf-collection-add {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    width: 100%;
+    padding: 0.375rem 0.5rem;
+    border: none;
+    border-radius: var(--cf-radius);
+    background: transparent;
+    color: var(--cf-primary);
+    font: inherit;
+    font-size: 0.85rem;
+    text-align: left;
+    cursor: pointer;
+}
+.cf-collection-add:hover { background: var(--cf-background); }
+.cf-collection-add-icon { font-size: 1rem; line-height: 1; font-weight: 700; }
+.cf-modal-text { margin: 0 0 0.5rem; font-size: 0.9rem; color: var(--cf-text-secondary); }
 
 /* Fields */
 .cf-field { margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.35rem; }
@@ -139,7 +227,29 @@ body {
 .cf-slider, .cf-color { flex: 1; }
 
 .cf-checkbox { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
-.cf-checklist { display: flex; flex-direction: column; gap: 0.35rem; }
+/* Checklist renders as a horizontal row of toggle chips (compact multi-select). */
+.cf-checklist { display: flex; flex-flow: row wrap; gap: 0.4rem; }
+.cf-checklist .cf-checkbox {
+    gap: 0;
+    padding: 0.35rem 0.75rem;
+    border: 1px solid var(--cf-text-secondary);
+    border-radius: 999px;
+    user-select: none;
+    transition: background var(--cf-transition, 0.15s), color var(--cf-transition, 0.15s);
+}
+.cf-checklist .cf-checkbox input { position: absolute; opacity: 0; width: 0; height: 0; }
+.cf-checklist .cf-checkbox:hover { border-color: var(--cf-primary); }
+.cf-checklist .cf-checkbox:has(input:checked) {
+    background: var(--cf-primary);
+    border-color: var(--cf-primary);
+    color: var(--cf-surface);
+}
+
+/* Secret (write-only) */
+.cf-secret { display: flex; align-items: center; gap: 0.5rem; }
+.cf-secret-state { font-size: 0.85rem; color: var(--cf-text-secondary); font-family: ui-monospace, Consolas, monospace; }
+.cf-secret-new { color: var(--cf-warning); }
+.cf-secret-none { font-style: italic; }
 
 /* Tags */
 .cf-taglist { display: flex; flex-wrap: wrap; gap: 0.35rem; }
@@ -181,6 +291,33 @@ body {
 }
 .cf-group-title { font-weight: 600; padding: 0 0.35rem; }
 .cf-category-description { color: var(--cf-text-secondary); margin-top: 0; }
+
+/* Sub-tabs (nested categorization inside a sidebar group) */
+.cf-tabs { display: flex; flex-direction: column; gap: 1rem; }
+.cf-tab-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    border-bottom: 1px solid var(--cf-border);
+}
+.cf-tab {
+    appearance: none;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    padding: 0.5rem 0.9rem;
+    font: inherit;
+    color: var(--cf-text-secondary);
+    cursor: pointer;
+}
+.cf-tab:hover { color: var(--cf-text-primary); }
+.cf-tab.cf-active {
+    color: var(--cf-text-primary);
+    border-bottom-color: var(--cf-accent);
+    font-weight: 600;
+}
+.cf-tab-panel { display: flex; flex-direction: column; gap: 1rem; }
 
 /* Banners */
 .cf-banner { border-radius: var(--cf-radius); padding: 0.75rem 1rem; margin-bottom: 1rem; }
@@ -378,3 +515,14 @@ body {
 .cf-map-key { flex: 0 0 12rem; align-self: flex-start; }
 .cf-arrayobject-remove, .cf-map-remove { flex: 0 0 auto; align-self: flex-start; }
 .cf-arrayobject-add, .cf-map-add { align-self: flex-start; }
+
+.cf-oneof-select { max-width: 20rem; }
+.cf-oneof-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    padding-left: 0.75rem;
+    border-left: 2px solid var(--cf-background);
+}
+.cf-oneof-body .cf-field { margin-bottom: 0; }

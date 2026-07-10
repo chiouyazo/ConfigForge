@@ -1,3 +1,4 @@
+var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
 
 string schemaDir =
@@ -32,3 +33,5 @@ app.MapGet(
         return File.Exists(file) ? Results.File(file, "application/json") : Results.NotFound();
     }
 );
+
+app.Run();

@@ -66,7 +66,7 @@ private static async Task TestConnectionAsync(IActionContext ctx)
 }
 ```
 
-`IActionContext` gives you: `ctx["fieldKey"]` (the current value as a string), `SetFieldValueAsync`, `SetFieldOptionsAsync`, `SetFieldLoadingAsync`, `SetFieldEnabledAsync`, `ShowToastAsync`, `Services` (the host's DI), and a `CancellationToken` that fires when the user leaves the category.
+`IActionContext` gives you: `ctx["fieldKey"]` (the current value as a string), `ctx.CurrentFieldKey` (the path of the field the handler runs for), `SetFieldValueAsync`, `SetFieldOptionsAsync`, `SetFieldLoadingAsync`, `SetFieldEnabledAsync`, `ShowToastAsync`, `Services` (the host's DI), and a `CancellationToken` that fires when the user leaves the category.
 
 A button does nothing unless a plugin handles its id, which is the point: buttons are declared by the schema and powered by plugins, not built in.
 
@@ -83,6 +83,10 @@ private static async Task<IReadOnlyList<SelectOption>> LoadChannelsAsync(IAction
     return channels.Select(c => new SelectOption { Value = c.Id, Label = c.Name }).ToList();
 }
 ```
+
+Set the loader from C# with `[CfLoader("my.loadChannels")]` (see [generation](generation.md)) or inline with `x-loader` on the property schema — both make the field a dropdown.
+
+One loader can serve many fields: use `ctx.CurrentFieldKey` to see which field it's loading for and branch on the path. For example, a repeatable mapping under `connectors/{guid}/customerGroups/{i}/remote` can share a single loader that parses the key to pick the connector and the entity to fetch — instead of one loader per field.
 
 ## Validators
 

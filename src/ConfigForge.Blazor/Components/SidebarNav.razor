@@ -4,32 +4,71 @@
         <CfLogo Logo="Logo" />
     }
 
-    <input class="cf-input cf-sidebar-search"
-           type="search"
-           placeholder="Filter categories…"
-           value="@_filter"
-           aria-label="Filter categories"
-           @oninput="OnFilterChanged" />
+    @if (ShowFilter)
+    {
+        <input class="cf-input cf-sidebar-search"
+               type="search"
+               placeholder="Filter categories…"
+               value="@_filter"
+               aria-label="Filter categories"
+               @oninput="OnFilterChanged" />
+    }
 
     <ul class="cf-category-list">
         @for (int i = 0; i < Categories.Count; i++)
         {
             int index = i;
             CategoryElement category = Categories[index];
-            if (Matches(category))
+            if (!Matches(category))
             {
-                <li>
-                    <button type="button"
-                            class="cf-category-item @(index == ActiveIndex ? "cf-active" : string.Empty)"
-                            @onclick="@(() => OnSelect.InvokeAsync(index))">
-                        @if (!string.IsNullOrEmpty(category.Icon))
-                        {
-                            <span class="cf-category-icon cf-icon-@category.Icon" aria-hidden="true"></span>
-                        }
-                        <span class="cf-category-label">@category.Label</span>
-                    </button>
-                </li>
+                continue;
             }
+
+            <li>
+                <button type="button"
+                        class="cf-category-item @(index == ActiveIndex ? "cf-active" : string.Empty)"
+                        @onclick="@(() => OnSelect.InvokeAsync(index))">
+                    @if (!string.IsNullOrEmpty(category.Icon))
+                    {
+                        <span class="cf-category-icon cf-icon-@category.Icon" aria-hidden="true"></span>
+                    }
+                    <span class="cf-category-label">@category.Label</span>
+                </button>
+
+                @if (category.CollectionKey is { Length: > 0 } collectionKey)
+                {
+                    <ul class="cf-collection-list">
+                        @foreach (string entryKey in EntryKeys(collectionKey))
+                        {
+                            string key = entryKey;
+                            bool active = index == ActiveIndex
+                                && string.Equals(Session.GetSelectedEntry(collectionKey), key, StringComparison.Ordinal);
+                            <li class="cf-collection-item @(active ? "cf-active" : string.Empty)">
+                                <button type="button"
+                                        class="cf-collection-select"
+                                        @onclick="@(() => OnSelectEntry.InvokeAsync(new CollectionEntryRef(index, key)))">
+                                    @EntryLabel(category, collectionKey, key)
+                                </button>
+                                <button type="button"
+                                        class="cf-collection-remove"
+                                        title="Remove"
+                                        aria-label="Remove"
+                                        @onclick="@(() => OnRemoveEntry.InvokeAsync(new CollectionEntryRef(index, key)))">
+                                    &times;
+                                </button>
+                            </li>
+                        }
+                        <li>
+                            <button type="button"
+                                    class="cf-collection-add"
+                                    @onclick="@(() => OnAddEntry.InvokeAsync(index))">
+                                <span class="cf-collection-add-icon" aria-hidden="true">+</span>
+                                <span>@(string.IsNullOrEmpty(category.CollectionAddLabel) ? "Add" : category.CollectionAddLabel)</span>
+                            </button>
+                        </li>
+                    </ul>
+                }
+            </li>
         }
     </ul>
 
@@ -53,15 +92,52 @@
     [Parameter]
     public EventCallback<int> OnSelect { get; set; }
 
+    /// <summary>Raised when the user selects an entry within a collection category.</summary>
+    [Parameter]
+    public EventCallback<CollectionEntryRef> OnSelectEntry { get; set; }
+
+    /// <summary>Raised with a category index when the user asks to add a collection entry.</summary>
+    [Parameter]
+    public EventCallback<int> OnAddEntry { get; set; }
+
+    /// <summary>Raised when the user asks to remove a collection entry.</summary>
+    [Parameter]
+    public EventCallback<CollectionEntryRef> OnRemoveEntry { get; set; }
+
     /// <summary>An optional logo to render in the sidebar.</summary>
     [Parameter]
     public LogoDefinition? Logo { get; set; }
 
+    [Inject]
+    private EditingSession Session { get; set; } = default!;
+
     private string _filter = string.Empty;
+
+    // A category filter only earns its space once the sidebar is long enough to be worth
+    // filtering; below this it is just noise, so it stays hidden (e.g. a 3-group schema).
+    private const int FilterThreshold = 8;
+
+    private bool ShowFilter => Categories.Count >= FilterThreshold;
 
     private void OnFilterChanged(ChangeEventArgs e) => _filter = e.Value as string ?? string.Empty;
 
     private bool Matches(CategoryElement category) =>
         _filter.Length == 0
         || category.Label.Contains(_filter, StringComparison.OrdinalIgnoreCase);
+
+    private IReadOnlyList<string> EntryKeys(string collectionKey) =>
+        Session.Document[collectionKey] is IDictionary<string, object?> map ? [.. map.Keys] : [];
+
+    private string EntryLabel(CategoryElement category, string collectionKey, string entryKey)
+    {
+        if (category.CollectionEntryLabelKey is { Length: > 0 } labelKey
+            && Session.Document[$"{collectionKey}/{entryKey}/{labelKey}"] is string label
+            && !string.IsNullOrWhiteSpace(label))
+        {
+            return label;
+        }
+
+        // A generated (uuid) entry key is not meaningful to show; only a real string key is.
+        return category.CollectionEntryLabelKey is { Length: > 0 } ? "(unnamed)" : entryKey;
+    }
 }

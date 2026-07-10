@@ -17,13 +17,16 @@
     @foreach (string entryKey in keys)
     {
         string key = entryKey;
-        <div class="cf-map-row">
-            <input class="cf-input cf-map-key"
-                   type="text"
-                   value="@key"
-                   placeholder="Key"
-                   disabled="@Disabled"
-                   @onchange="@(e => RenameKey(key, e.Value as string))" />
+        <div class="cf-map-row @(Keyless ? "cf-map-row-keyless" : string.Empty)">
+            @if (!Keyless)
+            {
+                <input class="cf-input cf-map-key"
+                       type="text"
+                       value="@key"
+                       placeholder="Key"
+                       disabled="@Disabled"
+                       @onchange="@(e => RenameKey(key, e.Value as string))" />
+            }
             <div class="cf-map-value">
                 @if (IsObjectValue)
                 {
@@ -84,6 +87,9 @@
 
     private bool IsObjectValue => string.Equals(ValueTemplate.ControlType, "object", StringComparison.Ordinal);
 
+    /// <summary>True when entries are keyed by a generated GUID the user never sees.</summary>
+    private bool Keyless => string.Equals(Field.KeyFormat, "uuid", StringComparison.Ordinal);
+
     private IReadOnlyList<FieldDefinition> ValueChildren => ValueTemplate.Children;
 
     private FieldDefinition RebaseChild(FieldDefinition child, string key) =>
@@ -98,22 +104,14 @@
 
     private List<string> ReadKeys() => [.. ReadMap().Keys];
 
-    private void AddEntry()
-    {
-        Dictionary<string, object?> map = ReadMap();
-        string key = UniqueKey(map);
-        map[key] = IsObjectValue ? new Dictionary<string, object?>(StringComparer.Ordinal) : null;
-        Session.SetFieldValue(Field.Key, map);
-    }
+    private void AddEntry() =>
+        Session.AddMapEntry(
+            Field.Key,
+            Keyless,
+            IsObjectValue ? new Dictionary<string, object?>(StringComparer.Ordinal) : null
+        );
 
-    private void RemoveKey(string key)
-    {
-        Dictionary<string, object?> map = ReadMap();
-        if (map.Remove(key))
-        {
-            Session.SetFieldValue(Field.Key, map);
-        }
-    }
+    private void RemoveKey(string key) => Session.RemoveMapEntry(Field.Key, key);
 
     private void RenameKey(string oldKey, string? rawNewKey)
     {
@@ -136,18 +134,5 @@
         }
 
         Session.SetFieldValue(Field.Key, renamed);
-    }
-
-    private static string UniqueKey(Dictionary<string, object?> map)
-    {
-        int index = map.Count + 1;
-        string candidate = $"key{index}";
-        while (map.ContainsKey(candidate))
-        {
-            index++;
-            candidate = $"key{index}";
-        }
-
-        return candidate;
     }
 }

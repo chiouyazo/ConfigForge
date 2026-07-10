@@ -12,6 +12,8 @@ internal sealed class FakeActionContext : IActionContext
 
     public string this[string fieldKey] => string.Empty;
 
+    public string CurrentFieldKey { get; init; } = string.Empty;
+
     public IServiceProvider Services { get; } = new EmptyServiceProvider();
 
     public CancellationToken CancellationToken { get; init; } = CancellationToken.None;

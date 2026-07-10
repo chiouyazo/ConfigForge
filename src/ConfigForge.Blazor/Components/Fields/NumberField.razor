@@ -5,12 +5,14 @@
     <div class="cf-input-group">
         <input class="cf-input"
                type="number"
+               inputmode="@_inputMode"
                value="@CurrentString"
                min="@_min"
                max="@_max"
                step="@_step"
                placeholder="@Control.Placeholder"
                disabled="@(Disabled || Control.ReadOnly)"
+               onkeydown="@_keyGuard"
                @onchange="OnInputAsync" />
         @if (!string.IsNullOrEmpty(Control.Unit))
         {
@@ -21,15 +23,28 @@
 </div>
 
 @code {
+    // Integer fields allow only digits; decimals additionally allow . , e/E + -.
+    // Control keys (Backspace/arrows/Tab) and Ctrl/Meta shortcuts (copy/paste) pass through.
+    private const string IntegerGuard =
+        "if(event.key.length===1&&!event.ctrlKey&&!event.metaKey&&!/[0-9]/.test(event.key))event.preventDefault();";
+    private const string DecimalGuard =
+        "if(event.key.length===1&&!event.ctrlKey&&!event.metaKey&&!/[0-9.,eE+-]/.test(event.key))event.preventDefault();";
+
     private string? _min;
     private string? _max;
     private string? _step;
+    private string _inputMode = "decimal";
+    private string _keyGuard = DecimalGuard;
 
     protected override void OnParametersSet()
     {
         _min = OptionString("minimum");
         _max = OptionString("maximum");
         _step = OptionString("step") ?? OptionString("multipleOf");
+
+        bool isInteger = string.Equals(OptionString("type"), "integer", StringComparison.Ordinal);
+        _inputMode = isInteger ? "numeric" : "decimal";
+        _keyGuard = isInteger ? IntegerGuard : DecimalGuard;
     }
 
     private Task OnInputAsync(ChangeEventArgs e)

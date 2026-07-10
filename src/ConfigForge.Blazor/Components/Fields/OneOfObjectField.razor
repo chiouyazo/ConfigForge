@@ -1,0 +1,145 @@
+@using ConfigForge.Abstractions
+@using ConfigForge.Core.Schema
+
+<div class="cf-field cf-oneof">
+    <FieldLabel Control="Header" />
+    <FieldDescription Control="Header" />
+
+    <select class="cf-input cf-select cf-oneof-select"
+            value="@ActiveVariant?.DiscriminatorValue"
+            disabled="@Disabled"
+            @onchange="OnVariantChangedAsync">
+        @foreach (OneOfVariant variant in Field.OneOfVariants)
+        {
+            <option value="@variant.DiscriminatorValue">@variant.Label</option>
+        }
+    </select>
+
+    @{
+        OneOfVariant? active = ActiveVariant;
+        List<string> sections = Sections(active);
+    }
+    @if (active is not null)
+    {
+        <div class="cf-oneof-body">
+            @* Fields without a section render first; sectioned fields become tabs. *@
+            @foreach (FieldDefinition child in active.Children.Where(c => string.IsNullOrEmpty(c.Section)))
+            {
+                FieldDefinition scoped = child.WithKey(ChildKey(child));
+                <FieldRenderer Field="scoped" Disabled="Disabled" />
+            }
+
+            @if (sections.Count > 1)
+            {
+                string activeSection = ActiveSection(sections);
+                <div class="cf-tabs">
+                    <div class="cf-tab-strip" role="tablist">
+                        @foreach (string section in sections)
+                        {
+                            string s = section;
+                            <button type="button"
+                                    role="tab"
+                                    aria-selected="@(s == activeSection ? "true" : "false")"
+                                    class="cf-tab @(s == activeSection ? "cf-active" : string.Empty)"
+                                    @onclick="@(() => _activeSection = s)">
+                                @s
+                            </button>
+                        }
+                    </div>
+                    <div class="cf-tab-panel" role="tabpanel">
+                        @foreach (FieldDefinition child in active.Children.Where(c => c.Section == activeSection))
+                        {
+                            FieldDefinition scoped = child.WithKey(ChildKey(child));
+                            <FieldRenderer Field="scoped" Disabled="Disabled" />
+                        }
+                    </div>
+                </div>
+            }
+            else
+            {
+                @* A single section (or none) needs no tab strip: render its fields directly. *@
+                @foreach (FieldDefinition child in active.Children.Where(c => !string.IsNullOrEmpty(c.Section)))
+                {
+                    FieldDefinition scoped = child.WithKey(ChildKey(child));
+                    <FieldRenderer Field="scoped" Disabled="Disabled" />
+                }
+            }
+        </div>
+    }
+</div>
+
+@code {
+    /// <summary>The oneof field definition, carrying the discriminator and variants.</summary>
+    [Parameter]
+    [EditorRequired]
+    public FieldDefinition Field { get; set; } = new();
+
+    /// <summary>True when the control must not be edited.</summary>
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Inject]
+    private EditingSession Session { get; set; } = default!;
+
+    private string? _activeSection;
+
+    private static List<string> Sections(OneOfVariant? variant) =>
+        variant is null
+            ? []
+            : [.. variant.Children
+                .Select(c => c.Section)
+                .Where(s => !string.IsNullOrEmpty(s))
+                .Select(s => s!)
+                .Distinct(StringComparer.Ordinal)];
+
+    private string ActiveSection(List<string> sections) =>
+        _activeSection is not null && sections.Contains(_activeSection)
+            ? _activeSection
+            : sections[0];
+
+    private string ChildKey(FieldDefinition child) => Field.Key + "/" + child.Key;
+
+    private ControlDescriptor Header =>
+        new()
+        {
+            Key = Field.Key,
+            ControlType = Field.ControlType,
+            Title = Field.Title,
+            Description = Field.Description,
+            Tooltip = Field.Tooltip,
+            Required = Field.Required,
+        };
+
+    private OneOfVariant? ActiveVariant
+    {
+        get
+        {
+            string? current = null;
+            if (
+                Field.DiscriminatorKey is not null
+                && Session.Document[Field.Key] is IDictionary<string, object?> value
+                && value.TryGetValue(Field.DiscriminatorKey, out object? raw)
+            )
+            {
+                current = raw as string;
+            }
+
+            return Field.OneOfVariants.FirstOrDefault(v =>
+                    string.Equals(v.DiscriminatorValue, current, StringComparison.Ordinal)
+                ) ?? Field.OneOfVariants.FirstOrDefault();
+        }
+    }
+
+    private void OnVariantChangedAsync(ChangeEventArgs e)
+    {
+        // Switching the discriminator resets the object to just that type; the new
+        // variant's fields start empty rather than carrying the previous shape's values.
+        Dictionary<string, object?> obj = new(StringComparer.Ordinal);
+        if (Field.DiscriminatorKey is not null && e.Value is string disc)
+        {
+            obj[Field.DiscriminatorKey] = disc;
+        }
+
+        Session.SetFieldValue(Field.Key, obj);
+    }
+}

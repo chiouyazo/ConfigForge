@@ -69,8 +69,11 @@ A schema is one JSON document with three parts:
 
 Standard JsonForms works as-is. The `x-cf` block adds things JsonForms doesn't cover (control type overrides, tooltips, units, loader/validator ids, action buttons). See [docs/schema.md](docs/schema.md).
 
+You don't have to write the schema by hand: ConfigForge can **generate it from a C# type** by reflection — annotate the model with `[CfSecret]`, `[CfGroup]`, `[CfCategory]`, … and get a validated form. See [docs/generation.md](docs/generation.md).
+
 ## Documentation
 
+- [Generate a schema from a C# type](docs/generation.md)
 - [Add ConfigForge to an ASP.NET app](docs/aspnet.md)
 - [Write a plugin](docs/plugins.md)
 - [Build a standalone executable](docs/standalone.md)

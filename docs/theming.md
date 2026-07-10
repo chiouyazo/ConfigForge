@@ -24,6 +24,26 @@ In Open mode, set `options.ThemeProvider = new MyTheme()`. Register it before th
 
 `ThemeDefinition` covers the accent/surface/background/text colors, danger/success/warning colors, font family, border radius, and an optional logo.
 
+## Logo
+
+`ThemeDefinition.Logo` is a `LogoDefinition` (base64 image data + MIME type + alt text + position):
+
+```csharp
+Logo = new LogoDefinition
+{
+    Base64Data = Convert.ToBase64String(File.ReadAllBytes("logo.png")),
+    MimeType = "image/png",
+    AltText = "My Product",
+    Position = LogoPosition.TopLeft,
+};
+```
+
+Positions: `SidebarTop` / `SidebarBottom`, and `TopLeft` / `TopCenter` / `TopRight` in the header. A `TopLeft` logo **replaces** the header title text (the logo becomes the branding).
+
+## Header actions
+
+A host can add links to the header's right side via `AspNetConfigForgeOptions.HeaderActions` (see [ASP.NET hosting](aspnet.md)). Each `ConfigForgeHeaderAction` has `Label`, `Url`, `OpenInNewTab`, and `Variant`; set `IconSvg` (inline SVG) to render an icon-only button (label becomes the tooltip) with a hover affordance instead of a text button.
+
 ## theme.json (Open mode)
 
 Instead of code, drop a `theme.json` in the content root to override the basics without rebuilding:

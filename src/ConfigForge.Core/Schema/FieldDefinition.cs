@@ -71,6 +71,32 @@ public sealed class FieldDefinition
     public FieldDefinition? ValueField { get; init; }
 
     /// <summary>
+    /// For a <c>map</c> control, an optional key format. <c>uuid</c> means entries are
+    /// keyed by a generated GUID that the user neither sees nor edits (the key input is
+    /// hidden and a new key is generated on add). Null shows the editable string key.
+    /// </summary>
+    public string? KeyFormat { get; init; }
+
+    /// <summary>
+    /// Optional section (tab/group) this field belongs to within its container. Used by
+    /// composite controls (e.g. <c>oneof</c>) to organise their child fields into tabs.
+    /// </summary>
+    public string? Section { get; init; }
+
+    /// <summary>
+    /// For a <c>oneof</c> control, the property name whose value selects the active
+    /// variant (the discriminator, e.g. <c>Type</c>). Null for every other control type.
+    /// </summary>
+    public string? DiscriminatorKey { get; init; }
+
+    /// <summary>
+    /// For a <c>oneof</c> control, the selectable variants from the schema's
+    /// <c>oneOf</c>. Each carries its discriminator value and the field templates for
+    /// its shape (relative keys, rebased onto <c>parentKey/childKey</c>). Empty otherwise.
+    /// </summary>
+    public IReadOnlyList<OneOfVariant> OneOfVariants { get; init; } = [];
+
+    /// <summary>
     /// The schema constraint keywords (minimum, maximum, pattern, enum, type, …)
     /// copied as CLR values for validation and example generation.
     /// </summary>
@@ -103,6 +129,10 @@ public sealed class FieldDefinition
             Tracked = Tracked,
             Children = Children,
             ValueField = ValueField,
+            KeyFormat = KeyFormat,
+            Section = Section,
+            DiscriminatorKey = DiscriminatorKey,
+            OneOfVariants = OneOfVariants,
             SchemaConstraints = SchemaConstraints,
         };
 }

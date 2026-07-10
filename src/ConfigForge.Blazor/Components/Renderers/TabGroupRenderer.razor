@@ -1,0 +1,51 @@
+@if (Tabs.Count > 0)
+{
+    <div class="cf-tabs">
+        <div class="cf-tab-strip" role="tablist">
+            @for (int i = 0; i < Tabs.Count; i++)
+            {
+                int index = i;
+                <button type="button"
+                        role="tab"
+                        aria-selected="@(index == _active ? "true" : "false")"
+                        class="cf-tab @(index == _active ? "cf-active" : string.Empty)"
+                        @onclick="@(() => _active = index)">
+                    @Tabs[index].Label
+                </button>
+            }
+        </div>
+        <div class="cf-tab-panel" role="tabpanel">
+            <CategoryRenderer Element="Tabs[_active]" Schema="Schema" Document="Document" />
+        </div>
+    </div>
+}
+
+@code {
+    /// <summary>The nested Categorization element whose child categories are the tabs.</summary>
+    [Parameter]
+    [EditorRequired]
+    public UiElement Element { get; set; } = new();
+
+    /// <summary>The schema providing field definitions.</summary>
+    [Parameter]
+    [EditorRequired]
+    public ConfigSchema Schema { get; set; } = new();
+
+    /// <summary>The live document.</summary>
+    [Parameter]
+    [EditorRequired]
+    public ConfigDocument Document { get; set; } = new();
+
+    private int _active;
+
+    private IReadOnlyList<UiElement> Tabs =>
+        [.. Element.Elements.Where(e => string.Equals(e.Type, "Category", StringComparison.Ordinal))];
+
+    protected override void OnParametersSet()
+    {
+        if (_active >= Tabs.Count)
+        {
+            _active = 0;
+        }
+    }
+}

@@ -47,6 +47,25 @@ public sealed class AspNetConfigForgeOptions
     public string ApplicationTitle { get; set; } = "Configuration";
 
     /// <summary>
+    /// Whether the schema picker (top-left dropdown) is shown. When ConfigForge is
+    /// embedded in a host that edits a single, fixed schema this should stay off.
+    /// Defaults to <see langword="false"/>.
+    /// </summary>
+    public bool ShowSchemaPicker { get; set; }
+
+    /// <summary>
+    /// Whether the "View code" button (raw JSON/schema panel) is shown. Off by default
+    /// so it does not leak into an embedding host that only wants the form.
+    /// </summary>
+    public bool ShowCodePanel { get; set; }
+
+    /// <summary>
+    /// Custom links rendered in the header action area (e.g. help/support). Empty by
+    /// default. The host owns their meaning; ConfigForge only renders them.
+    /// </summary>
+    public IReadOnlyList<ConfigForgeHeaderAction> HeaderActions { get; set; } = [];
+
+    /// <summary>
     /// Optional callback invoked when a configuration document is saved. The first
     /// argument is the schema or document identifier, the second is the serialized
     /// document payload. Required in <see cref="ConfigForgeMode.Locked"/> mode.

@@ -116,7 +116,7 @@ public sealed partial class FieldRenderer : ComponentBase, IDisposable
         Session.SetFieldLoading(Field.Key, true);
         try
         {
-            ActionContext context = new(Session, Services);
+            ActionContext context = new(Session, Services, Field.Key);
             IReadOnlyList<SelectOption> options = await Dispatcher
                 .DispatchLoaderAsync(loaderId, context)
                 .ConfigureAwait(false);
@@ -136,10 +136,23 @@ public sealed partial class FieldRenderer : ComponentBase, IDisposable
 
     private List<SelectOption> StaticOptions()
     {
-        if (
-            !Field.SchemaConstraints.TryGetValue("enum", out object? raw)
-            || raw is not IEnumerable values
+        // A plain enum carries its values on the field; an array/checklist of enums
+        // (e.g. a multi-select of weekdays) carries them on the items schema.
+        object? raw = null;
+        if (Field.SchemaConstraints.TryGetValue("enum", out object? fieldEnum))
+        {
+            raw = fieldEnum;
+        }
+        else if (
+            Field.SchemaConstraints.TryGetValue("items", out object? items)
+            && items is IReadOnlyDictionary<string, object?> itemMap
+            && itemMap.TryGetValue("enum", out object? itemEnum)
         )
+        {
+            raw = itemEnum;
+        }
+
+        if (raw is not IEnumerable values || raw is string)
         {
             return [];
         }

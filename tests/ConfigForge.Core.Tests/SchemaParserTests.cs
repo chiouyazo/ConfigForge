@@ -16,6 +16,50 @@ public sealed class SchemaParserTests
     }
 
     [Fact]
+    public void Parse_ReadsCollectionCategoryMetadata()
+    {
+        const string json = """
+            {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "connectors": {
+                    "type": "object",
+                    "additionalProperties": { "type": "object", "properties": { "name": { "type": "string" } } }
+                  }
+                }
+              },
+              "uiSchema": {
+                "type": "Categorization",
+                "elements": [
+                  { "type": "Category", "label": "Connectors",
+                    "elements": [ { "type": "Control", "scope": "#/properties/connectors" } ] }
+                ]
+              },
+              "x-cf": {
+                "categories": {
+                  "Connectors": { "collection": "connectors", "collectionLabel": "name", "collectionAddLabel": "Add connector" }
+                }
+              }
+            }
+            """;
+
+        ConfigSchema schema = new JsonFormsSchemaParser().Parse(json);
+        CategoryElement category = Assert.Single(schema.Categories);
+
+        Assert.Equal("connectors", category.CollectionKey);
+        Assert.Equal("name", category.CollectionEntryLabelKey);
+        Assert.Equal("Add connector", category.CollectionAddLabel);
+    }
+
+    [Fact]
+    public void Parse_OrdinaryCategoryHasNoCollectionKey()
+    {
+        ConfigSchema schema = ParseCanonical();
+        Assert.All(schema.Categories, c => Assert.Null(c.CollectionKey));
+    }
+
+    [Fact]
     public void Parse_ProducesTwoCategoriesWithExpectedLabels()
     {
         ConfigSchema schema = ParseCanonical();

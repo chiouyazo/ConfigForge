@@ -42,6 +42,13 @@ public interface IActionContext
     Task SetFieldEnabledAsync(string fieldKey, bool enabled);
 
     /// <summary>
+    /// The path key of the field this handler is running for (e.g. the field whose
+    /// options a loader is populating). Empty for handlers not tied to a field. Lets a
+    /// shared loader derive context from the path (e.g. a parent id or collection name).
+    /// </summary>
+    string CurrentFieldKey { get; }
+
+    /// <summary>
     /// Access to the host service provider for resolving registered dependencies.
     /// </summary>
     IServiceProvider Services { get; }

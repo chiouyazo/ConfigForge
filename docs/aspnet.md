@@ -47,10 +47,47 @@ app.Run();
 | `SchemaDirectory` | `schemas` | Folder of `*.json` schema files. |
 | `PluginDirectory` | `plugins` | Folder of plugin DLLs, loaded at startup. |
 | `Mode` | `Open` | `Open` lets users choose/upload a schema; `Locked` fixes it. |
-| `ApplicationTitle` | `Configuration` | Shown in the header. |
+| `ApplicationTitle` | `Configuration` | Shown in the header (unless a top-left logo replaces it). |
 | `ThemeProvider` | built-in neutral theme | See [theming](theming.md). |
+| `ShowSchemaPicker` | `false` | Show the top-left schema dropdown. Leave off when embedding a single fixed schema. |
+| `ShowCodePanel` | `false` | Show the "View code" (raw JSON/schema) button. |
+| `HeaderActions` | empty | Custom header links (`ConfigForgeHeaderAction`: `Label`, `Url`, `OpenInNewTab`, `Variant`, optional `IconSvg` for an icon-only button). |
 | `OnSave` | none | `Func<string schemaId, string json, Task>`. Required in `Locked` mode. |
 | `OnLoad` | none | `Func<string schemaId, Task<string?>>`. Return `null` to start empty. |
+
+`ShowSchemaPicker` and `ShowCodePanel` default off so ConfigForge doesn't add chrome to a host it's only a part of. Turn them on for a schema-authoring host.
+
+## Running without publishing
+
+`WebApplication.CreateBuilder` only enables Blazor's static web assets in the Development environment, so a non-published `dotnet run` in Production serves no `_framework`/`_content` assets — the interactive circuit never starts and the CSS is missing. Use the builder overload, which enables static web assets in any environment:
+
+```csharp
+builder.AddConfigForge(options => { /* ... */ });   // instead of builder.Services.AddConfigForge(...)
+```
+
+Published apps work either way.
+
+## Secrets
+
+A `secret` control is write-only. On load, replace the real value with the sentinel `ConfigForge.Abstractions.ConfigForgeSecret.StoredMarker` so the plaintext never reaches the browser; the control then shows "stored". On save, interpret the field:
+
+- value == `StoredMarker` → keep the existing secret unchanged;
+- non-empty other value → a new plaintext to (re-)encrypt/hash;
+- empty/absent → clear it.
+
+`OnLoad`/`OnSave` deal in the serialized document, so this is a small transform over the JSON (or over your strongly-typed config with a pair of converters).
+
+## Registering a generated schema
+
+Instead of schema files, you can [generate a schema from a C# type](generation.md) and register it at startup:
+
+```csharp
+var app = builder.Build();
+var state = app.Services.GetRequiredService<IConfigForgeHostState>();
+var json = new ClrSchemaGenerator().Generate<AppConfig>(new() { Id = "app", Name = "App" });
+state.UpsertSchema(new JsonFormsSchemaParser().Parse(json));
+app.UseConfigForge();
+```
 
 ## On disk
 

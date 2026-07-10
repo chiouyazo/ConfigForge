@@ -16,8 +16,10 @@ else
             <TextAreaField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />
             break;
         case "password":
-        case "secret":
             <PasswordField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />
+            break;
+        case "secret":
+            <SecretField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />
             break;
         case "number":
         case "integer":
@@ -64,6 +66,9 @@ else
             break;
         case "map":
             <MapField Field="Field" Disabled="Disabled" />
+            break;
+        case "oneof":
+            <OneOfObjectField Field="Field" Disabled="Disabled" />
             break;
         case "filepath":
         case "file":

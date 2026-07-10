@@ -4,13 +4,16 @@
         {
             <CfLogo Logo="Logo" />
         }
-        <div class="cf-header-titles">
-            <h1 class="cf-title">@Title</h1>
-            @if (!string.IsNullOrEmpty(Subtitle))
-            {
-                <p class="cf-subtitle">@Subtitle</p>
-            }
-        </div>
+        else
+        {
+            <div class="cf-header-titles">
+                <h1 class="cf-title">@Title</h1>
+                @if (!string.IsNullOrEmpty(Subtitle))
+                {
+                    <p class="cf-subtitle">@Subtitle</p>
+                }
+            </div>
+        }
     </div>
 
     <div class="cf-header-center cf-header-slot">
@@ -24,6 +27,29 @@
         @if (IsHeaderPosition(LogoPosition.TopRight))
         {
             <CfLogo Logo="Logo" />
+        }
+        @foreach (ConfigForgeHeaderAction action in HeaderActions)
+        {
+            @if (!string.IsNullOrEmpty(action.IconSvg))
+            {
+                <a class="cf-header-icon"
+                   href="@action.Url"
+                   title="@action.Label"
+                   aria-label="@action.Label"
+                   target="@(action.OpenInNewTab ? "_blank" : null)"
+                   rel="@(action.OpenInNewTab ? "noopener noreferrer" : null)">
+                    @((MarkupString)action.IconSvg)
+                </a>
+            }
+            else
+            {
+                <a class="cf-button cf-button-@action.Variant"
+                   href="@action.Url"
+                   target="@(action.OpenInNewTab ? "_blank" : null)"
+                   rel="@(action.OpenInNewTab ? "noopener noreferrer" : null)">
+                    @action.Label
+                </a>
+            }
         }
         @if (ShowCodePanel)
         {
@@ -60,6 +86,10 @@
     /// <summary>Whether the generate-document button is shown (Open mode only). Default true.</summary>
     [Parameter]
     public bool ShowGenerateButton { get; set; } = true;
+
+    /// <summary>Custom host-supplied links rendered before the built-in header buttons.</summary>
+    [Parameter]
+    public IReadOnlyList<ConfigForgeHeaderAction> HeaderActions { get; set; } = [];
 
     /// <summary>Raised when the user clicks the generate-document button.</summary>
     [Parameter]

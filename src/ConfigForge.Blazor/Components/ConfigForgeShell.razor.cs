@@ -22,6 +22,12 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
     private string? _codeError;
     private CodeView _codeView = CodeView.Config;
 
+    private bool _showAddEntryDialog;
+    private int _addEntryCategoryIndex;
+    private string? _addEntryVariant;
+    private string _addEntryName = string.Empty;
+    private CollectionEntryRef? _removeEntryRef;
+
     private enum CodeView
     {
         Config,
@@ -56,6 +62,10 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
     /// <summary>Whether the header's generate-document button is shown. Default true.</summary>
     [Parameter]
     public bool ShowGenerateButton { get; set; } = true;
+
+    /// <summary>Custom host-supplied links rendered in the header action area.</summary>
+    [Parameter]
+    public IReadOnlyList<ConfigForgeHeaderAction> HeaderActions { get; set; } = [];
 
     /// <summary>
     /// Whether the collapsible code panel (live Config JSON, and the Schema when
@@ -183,6 +193,102 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
         {
             await OnCategoryChanged.InvokeAsync(categories[index].Label).ConfigureAwait(false);
         }
+    }
+
+    // ----- Collection master/detail (categories backed by a map field) -----
+
+    private CategoryElement? AddCategory =>
+        _addEntryCategoryIndex >= 0 && _addEntryCategoryIndex < Schema.Categories.Count
+            ? Schema.Categories[_addEntryCategoryIndex]
+            : null;
+
+    private FieldDefinition? AddValueField =>
+        AddCategory?.CollectionKey is { Length: > 0 } key
+        && Schema.Fields.TryGetValue(key, out FieldDefinition? mapField)
+            ? mapField.ValueField
+            : null;
+
+    private IReadOnlyList<OneOfVariant> AddVariants => AddValueField?.OneOfVariants ?? [];
+
+    private bool AddIsOneOf => AddValueField?.DiscriminatorKey is { Length: > 0 };
+
+    private async Task OnSelectCollectionEntry(CollectionEntryRef entry)
+    {
+        await OnSelectCategory(entry.CategoryIndex).ConfigureAwait(false);
+        if (Schema.Categories[entry.CategoryIndex].CollectionKey is { Length: > 0 } key)
+        {
+            Session.SetSelectedEntry(key, entry.EntryKey);
+        }
+    }
+
+    private void OnAddCollectionEntry(int categoryIndex)
+    {
+        _addEntryCategoryIndex = categoryIndex;
+        _addEntryName = string.Empty;
+        _addEntryVariant = AddVariants.Count > 0 ? AddVariants[0].DiscriminatorValue : null;
+        _showAddEntryDialog = true;
+    }
+
+    private void CancelAddEntry() => _showAddEntryDialog = false;
+
+    private void ConfirmAddEntry()
+    {
+        CategoryElement? category = AddCategory;
+        FieldDefinition? valueField = AddValueField;
+        if (category?.CollectionKey is not { Length: > 0 } collectionKey)
+        {
+            _showAddEntryDialog = false;
+            return;
+        }
+
+        Dictionary<string, object?> value = new(StringComparer.Ordinal);
+        if (
+            valueField?.DiscriminatorKey is { Length: > 0 } disc
+            && _addEntryVariant is { Length: > 0 }
+        )
+        {
+            value[disc] = _addEntryVariant;
+        }
+
+        // Seed the label field so the new entry is identifiable in the sidebar immediately.
+        // Only flat label keys are seeded here; nested labels are left for the user to fill.
+        if (
+            !string.IsNullOrWhiteSpace(_addEntryName)
+            && category.CollectionEntryLabelKey is { Length: > 0 } labelKey
+            && !labelKey.Contains('/', StringComparison.Ordinal)
+        )
+        {
+            value[labelKey] = _addEntryName.Trim();
+        }
+
+        bool keyless = string.Equals(valueField?.KeyFormat, "uuid", StringComparison.Ordinal);
+        string entryKey = Session.AddMapEntry(collectionKey, keyless, value);
+        Session.SetActiveCategory(_addEntryCategoryIndex);
+        Session.SetSelectedEntry(collectionKey, entryKey);
+        _showAddEntryDialog = false;
+    }
+
+    private void OnRemoveCollectionEntry(CollectionEntryRef entry) => _removeEntryRef = entry;
+
+    private void CancelRemoveEntry() => _removeEntryRef = null;
+
+    private void ConfirmRemoveEntry()
+    {
+        if (
+            _removeEntryRef is { } entry
+            && Schema.Categories[entry.CategoryIndex].CollectionKey is { Length: > 0 } collectionKey
+            && Session.RemoveMapEntry(collectionKey, entry.EntryKey)
+            && string.Equals(
+                Session.GetSelectedEntry(collectionKey),
+                entry.EntryKey,
+                StringComparison.Ordinal
+            )
+        )
+        {
+            Session.SetSelectedEntry(collectionKey, null);
+        }
+
+        _removeEntryRef = null;
     }
 
     private void ToggleCodePanel()

@@ -6,6 +6,7 @@
                    Subtitle="@HeaderSubtitle"
                    Logo="Theme.Logo"
                    Mode="Mode"
+                   HeaderActions="HeaderActions"
                    ShowGenerateButton="ShowGenerateButton"
                    ShowCodePanel="ShowCodePanel"
                    CodePanelOpen="_codePanelOpen"
@@ -17,7 +18,10 @@
                 <SidebarNav Categories="Categories"
                             ActiveIndex="Session.ActiveCategoryIndex"
                             Logo="Theme.Logo"
-                            OnSelect="OnSelectCategory" />
+                            OnSelect="OnSelectCategory"
+                            OnSelectEntry="OnSelectCollectionEntry"
+                            OnAddEntry="OnAddCollectionEntry"
+                            OnRemoveEntry="OnRemoveCollectionEntry" />
             </aside>
 
             <main class="cf-main">
@@ -83,5 +87,54 @@
                                 HasUnsavedChanges="Session.IsDirty"
                                 OnConfirm="OnGenerateConfirmedAsync"
                                 OnCancel="HideGenerateDialog" />
+
+        @if (_showAddEntryDialog)
+        {
+            <div class="cf-modal-backdrop" @onclick="CancelAddEntry">
+                <div class="cf-modal" role="dialog" aria-modal="true" aria-label="Add entry"
+                     @onclick:stopPropagation="true">
+                    <h2 class="cf-modal-title">@(string.IsNullOrEmpty(AddCategory?.CollectionAddLabel) ? "Add entry" : AddCategory!.CollectionAddLabel)</h2>
+
+                    @if (AddIsOneOf)
+                    {
+                        <label class="cf-label" for="cf-add-type">Type</label>
+                        <select id="cf-add-type" class="cf-input cf-select"
+                                value="@_addEntryVariant"
+                                @onchange="@(e => _addEntryVariant = e.Value as string)">
+                            @foreach (OneOfVariant variant in AddVariants)
+                            {
+                                <option value="@variant.DiscriminatorValue">@variant.Label</option>
+                            }
+                        </select>
+                    }
+
+                    <label class="cf-label" for="cf-add-name">Name</label>
+                    <input id="cf-add-name" class="cf-input" type="text"
+                           placeholder="Name"
+                           value="@_addEntryName"
+                           @oninput="@(e => _addEntryName = e.Value as string ?? string.Empty)" />
+
+                    <div class="cf-modal-actions">
+                        <button type="button" class="cf-button" @onclick="CancelAddEntry">Cancel</button>
+                        <button type="button" class="cf-button cf-button-primary" @onclick="ConfirmAddEntry">Add</button>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (_removeEntryRef is not null)
+        {
+            <div class="cf-modal-backdrop" @onclick="CancelRemoveEntry">
+                <div class="cf-modal" role="dialog" aria-modal="true" aria-label="Remove entry"
+                     @onclick:stopPropagation="true">
+                    <h2 class="cf-modal-title">Remove?</h2>
+                    <p class="cf-modal-text">This removes the selected entry and all of its settings. The change takes effect when you save.</p>
+                    <div class="cf-modal-actions">
+                        <button type="button" class="cf-button" @onclick="CancelRemoveEntry">Cancel</button>
+                        <button type="button" class="cf-button cf-button-danger" @onclick="ConfirmRemoveEntry">Remove</button>
+                    </div>
+                </div>
+            </div>
+        }
     </div>
 </ThemeProvider>
