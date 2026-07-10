@@ -81,6 +81,27 @@ All of these live in `ConfigForge.Abstractions.Annotations`. They only annotate;
 | `[CfCategory("…")]` | Tab within a group (or a top-level tab if no groups). |
 | `[CfSection("…")]` | A titled box (or a tab inside a `oneof` variant) grouping fields within a tab. |
 | `[CfReadOnly]` *(via `[CfOptions]`)* | Render read-only (schema `readOnly`): shown but not editable. |
+| `[CfEnableWhen("path", value)]` | Enable this field only while another field equals `value` (default `true`). |
+| `[CfVisibleWhen("path", value)]` | Show this field only while another field equals `value`. |
+| `[CfCategoryMeta("cat", Icon=…, Description=…)]` | **On the type.** Icon/description for a category. Repeatable. |
+| `[CfAction("id", Label=…, Category=…, Icon=…)]` | **On the type.** Declares an action button; the handler is registered in code with the same id. Repeatable. |
+
+### Validation: use standard DataAnnotations (no ConfigForge attribute needed)
+
+There is intentionally **no `[CfRange]`**. Numeric bounds, string length, patterns and required-ness come from the standard `System.ComponentModel.DataAnnotations` (and `System.Text.Json`) attributes, which the generator reads and emits as JSON Schema constraints — ConfigForge then validates against them:
+
+| Standard attribute | Emitted schema |
+|---|---|
+| `[Range(1, 65535)]` | `minimum` / `maximum` |
+| `[StringLength(50, MinimumLength = 3)]` | `maxLength` / `minLength` |
+| `[RegularExpression("…")]` | `pattern` |
+| `[Required]` / `[JsonRequired]` / `required` keyword | added to the schema's `required` array |
+| `[Description]` / `[Display(Name=…, Description=…)]` | `description` / `title` (fallbacks for `[CfLabel]`/`[CfDescription]`) |
+
+```csharp
+[Range(1, 65535)]
+public int SmtpPort { get; init; } = 587;   // validated 1..65535, no extra ConfigForge attribute
+```
 
 ### `[CfOptions]` — set several at once
 
@@ -190,6 +211,15 @@ options.Overlay = new JsonObject
 ```
 
 This is the escape hatch for labelling or hinting fields on types you can't annotate (e.g. library types).
+
+### What still needs the overlay (no attribute)
+
+Most things now have an attribute (actions, category icons/descriptions, and conditional enable/show rules are all attributes — see the table above). What remains overlay-only:
+
+- **Labels/hints on library types you can't annotate** — the original reason the overlay exists. Use `x-cf.controls[path]` and `schema.properties.…title`.
+- **Side-by-side layout** (`HorizontalLayout`) → `uiSchema`. ⚠️ The overlay **replaces** arrays rather than merging them, so hand-writing `uiSchema` discards the generated layout for that branch. Cosmetic; usually not worth it.
+
+Note that `[CfEnableWhen]`/`[CfVisibleWhen]` emit an **inline** rule on the property (`x-rule`), which the parser reads per-field — so conditional rules survive the overlay merge and don't require hand-writing `uiSchema` (the array-replace trap the overlay otherwise falls into).
 
 ## Using the generated schema
 

@@ -135,4 +135,36 @@ public sealed class FieldDefinition
             OneOfVariants = OneOfVariants,
             SchemaConstraints = SchemaConstraints,
         };
+
+    /// <summary>
+    /// Returns a copy of this definition with a different set of <see cref="Rules"/>, preserving
+    /// every other member. Used when UI rules discovered on the layout are attached to a field.
+    /// </summary>
+    /// <param name="rules">The rules for the copy.</param>
+    /// <returns>A copy carrying the new rules.</returns>
+    public FieldDefinition WithRules(IReadOnlyList<JsonFormsRule> rules) =>
+        new()
+        {
+            Key = Key,
+            ControlType = ControlType,
+            Title = Title,
+            Description = Description,
+            Tooltip = Tooltip,
+            Placeholder = Placeholder,
+            Unit = Unit,
+            Required = Required,
+            ReadOnly = ReadOnly,
+            DefaultValue = DefaultValue,
+            LoaderId = LoaderId,
+            ValidatorId = ValidatorId,
+            Rules = rules,
+            Tracked = Tracked,
+            Children = Children,
+            ValueField = ValueField,
+            KeyFormat = KeyFormat,
+            Section = Section,
+            DiscriminatorKey = DiscriminatorKey,
+            OneOfVariants = OneOfVariants,
+            SchemaConstraints = SchemaConstraints,
+        };
 }

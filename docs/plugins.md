@@ -133,4 +133,25 @@ Read the current value from `Document[Control.Key]` (or `Document.GetString(...)
 
 ## Shipping it
 
-Build the plugin and copy its DLL into the host's plugin directory (`PluginDirectory` in Open mode, or next to the exe in a `plugins/` folder for a standalone build). The host loads each DLL in its own `AssemblyLoadContext`; `ConfigForge.Abstractions` and the framework resolve back to the host, so your control's types line up with the host's. Don't ship a copy of `ConfigForge.Abstractions` next to your plugin; let it resolve from the host.
+Build the plugin and copy its output into the host's plugin directory (`PluginDirectory` in Open mode, or next to the exe in a `plugins/` folder for a standalone build). The host loads each plugin in its own collectible `AssemblyLoadContext` with an `AssemblyDependencyResolver`, so the plugin's private dependencies load from **its own folder**.
+
+**What to exclude vs. ship — this matters, get it wrong and the plugin silently fails to load:**
+
+- **Exclude (share from the host):** `ConfigForge.Abstractions` and the framework. Reference `ConfigForge.Abstractions` with `ExcludeAssets="runtime"` and use `<FrameworkReference Include="Microsoft.AspNetCore.App" />` (never a `PackageReference` copy). These *must* be the host's copy so your `IPlugin`/`IConfigControl`/`ComponentBase` are the same type the host expects. The loader always resolves `ConfigForge.*` from the host, and the framework resolves from the shared runtime.
+- **Ship (they're yours):** every other third-party package you use at runtime — e.g. `MailKit`, `Microsoft.Data.SqlClient`. **Do not** blanket-set `ExcludeAssets="runtime"` or `CopyLocalLockFileAssemblies=false` on these; the host is not guaranteed to have them, and if it doesn't, `Assembly.GetTypes()` throws and the whole plugin (all its actions, controls, loaders) registers nothing. Let them copy to the plugin's output so the resolver can load them.
+
+```xml
+<ItemGroup>
+  <!-- shared contract: host's copy, compile-only -->
+  <PackageReference Include="ConfigForge.Abstractions" Version="…" ExcludeAssets="runtime" />
+</ItemGroup>
+<ItemGroup>
+  <!-- your own deps: ship them (default behaviour, no ExcludeAssets) -->
+  <PackageReference Include="MailKit" Version="…" />
+</ItemGroup>
+<ItemGroup>
+  <FrameworkReference Include="Microsoft.AspNetCore.App" />
+</ItemGroup>
+```
+
+If a plugin fails to load, the host logs why at the point of failure — `Plugin directory … does not exist` (wrong path), `No IPlugin implementations found` (usually a shared-contract copy shadowing the host's type), or `Failed to load types … Missing/unloadable dependencies: …` (a runtime dependency the plugin didn't ship and the host doesn't have). Check that message first.

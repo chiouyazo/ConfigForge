@@ -316,7 +316,7 @@ public sealed partial class JsonFormsSchemaParser : IJsonFormsSchemaParser
             LoaderId = GetString(control, "loaderId") ?? GetString(propSchema, "x-loader"),
             ValidatorId = GetString(control, "validatorId") ?? GetString(propSchema, "x-validator"),
             SchemaConstraints = ReadConstraints(propSchema),
-            Rules = [],
+            Rules = ParseInlineRules(propSchema),
             Tracked = GetBool(control, "tracked") ?? GetBool(propSchema, "x-tracked") ?? true,
             Children = children,
             ValueField = valueField,
@@ -786,27 +786,33 @@ public sealed partial class JsonFormsSchemaParser : IJsonFormsSchemaParser
             _ => RuleEffect.None,
         };
 
+    // Combines any inline (x-rule) rules already on the field with the rules discovered on the
+    // uiSchema layout, preserving every other member (WithRules is a faithful copy).
     private static FieldDefinition CloneWithRules(
         FieldDefinition field,
         IReadOnlyList<JsonFormsRule> rules
-    ) =>
-        new()
+    ) => field.WithRules([.. field.Rules, .. rules]);
+
+    /// <summary>Reads an inline <c>x-rule</c> (a single rule object or an array of them) off a property.</summary>
+    private static List<JsonFormsRule> ParseInlineRules(JsonObject propSchema)
+    {
+        JsonNode? node = propSchema["x-rule"];
+        if (node is JsonArray array)
         {
-            Key = field.Key,
-            ControlType = field.ControlType,
-            Title = field.Title,
-            Description = field.Description,
-            Tooltip = field.Tooltip,
-            Placeholder = field.Placeholder,
-            Unit = field.Unit,
-            Required = field.Required,
-            ReadOnly = field.ReadOnly,
-            DefaultValue = field.DefaultValue,
-            LoaderId = field.LoaderId,
-            ValidatorId = field.ValidatorId,
-            SchemaConstraints = field.SchemaConstraints,
-            Rules = rules,
-        };
+            List<JsonFormsRule> parsed = [];
+            foreach (JsonNode? element in array)
+            {
+                if (ParseRule(element) is { } rule)
+                {
+                    parsed.Add(rule);
+                }
+            }
+
+            return parsed;
+        }
+
+        return ParseRule(node) is { } single ? [single] : [];
+    }
 
     private static HashSet<string> ReadRequired(JsonObject schemaObject)
     {

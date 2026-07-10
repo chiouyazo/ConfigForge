@@ -56,6 +56,18 @@ public sealed class ConfigForgeShellTests : BunitContext
     }
 
     [Fact]
+    public void ConfigForgeShell_RendersPoweredByLink()
+    {
+        IRenderedComponent<ConfigForgeShell> cut = Render<ConfigForgeShell>(parameters =>
+            parameters.Add(p => p.Schema, new ConfigSchema())
+        );
+
+        var link = cut.Find("a.cf-powered-by");
+        Assert.Contains("powered by ConfigForge", link.TextContent, StringComparison.Ordinal);
+        Assert.Equal("https://github.com/chiouyazo/ConfigForge", link.GetAttribute("href"));
+    }
+
+    [Fact]
     public void ConfigForgeShell_CollectionCategory_RendersEntriesAndAddButton()
     {
         IJsonFormsSchemaParser parser = Services.GetRequiredService<IJsonFormsSchemaParser>();

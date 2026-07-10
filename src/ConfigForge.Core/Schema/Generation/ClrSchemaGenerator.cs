@@ -38,6 +38,9 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
             ["version"] = options.Version,
         };
 
+        EmitCategoryMeta(rootType, xcf);
+        EmitActions(rootType, xcf);
+
         JsonObject document = new() { ["schema"] = schema, ["x-cf"] = xcf };
 
         JsonObject? uiSchema = BuildCategorization(rootType, schema, options);
@@ -349,6 +352,16 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
             schema["readOnly"] = true;
         }
 
+        List<CfRuleAttribute> rules = [.. property.GetCustomAttributes<CfRuleAttribute>()];
+        if (rules.Count == 1)
+        {
+            schema["x-rule"] = BuildRule(rules[0]);
+        }
+        else if (rules.Count > 1)
+        {
+            schema["x-rule"] = new JsonArray([.. rules.Select(r => (JsonNode)BuildRule(r))]);
+        }
+
         AddValidationConstraints(schema, property);
         return schema;
     }
@@ -356,6 +369,97 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
     /// <summary>The consolidated <c>[CfOptions]</c> on a property, if present.</summary>
     private static CfOptionsAttribute? Options(PropertyInfo property) =>
         property.GetCustomAttribute<CfOptionsAttribute>();
+
+    /// <summary>Emits <c>x-cf.categories[label]</c> icon/description from <c>[CfCategoryMeta]</c>.</summary>
+    private static void EmitCategoryMeta(Type rootType, JsonObject xcf)
+    {
+        List<CfCategoryMetaAttribute> metas =
+        [
+            .. rootType.GetCustomAttributes<CfCategoryMetaAttribute>(),
+        ];
+        if (metas.Count == 0)
+        {
+            return;
+        }
+
+        JsonObject categories = xcf["categories"] as JsonObject ?? [];
+        foreach (CfCategoryMetaAttribute meta in metas)
+        {
+            JsonObject entry = categories[meta.Category] as JsonObject ?? [];
+            if (meta.Icon is not null)
+            {
+                entry["icon"] = meta.Icon;
+            }
+
+            if (meta.Description is not null)
+            {
+                entry["description"] = meta.Description;
+            }
+
+            categories[meta.Category] = entry;
+        }
+
+        xcf["categories"] = categories;
+    }
+
+    /// <summary>Emits <c>x-cf.actions</c> from <c>[CfAction]</c> declarations on the type.</summary>
+    private static void EmitActions(Type rootType, JsonObject xcf)
+    {
+        List<CfActionAttribute> actions = [.. rootType.GetCustomAttributes<CfActionAttribute>()];
+        if (actions.Count == 0)
+        {
+            return;
+        }
+
+        JsonArray array = [];
+        foreach (CfActionAttribute action in actions)
+        {
+            JsonObject placement = new() { ["position"] = action.Position };
+            if (action.Category is not null)
+            {
+                placement["category"] = action.Category;
+            }
+
+            JsonObject entry = new()
+            {
+                ["actionId"] = action.ActionId,
+                ["variant"] = action.Variant,
+                ["placement"] = placement,
+            };
+            if (action.Label is not null)
+            {
+                entry["label"] = action.Label;
+            }
+
+            if (action.Icon is not null)
+            {
+                entry["icon"] = action.Icon;
+            }
+
+            array.Add(entry);
+        }
+
+        xcf["actions"] = array;
+    }
+
+    /// <summary>Builds an inline JsonForms rule (<c>x-rule</c>) from a <c>[CfEnableWhen]</c>/<c>[CfVisibleWhen]</c>.</summary>
+    private static JsonObject BuildRule(CfRuleAttribute rule) =>
+        new()
+        {
+            ["effect"] = rule.Effect,
+            ["condition"] = new JsonObject
+            {
+                ["scope"] = ScopeFromPath(rule.FieldPath),
+                ["schema"] = new JsonObject
+                {
+                    ["const"] = JsonSerializer.SerializeToNode(rule.EqualsValue),
+                },
+            },
+        };
+
+    /// <summary>Converts a slash path (<c>a/b</c>) to a JsonForms scope (<c>#/properties/a/properties/b</c>).</summary>
+    private static string ScopeFromPath(string fieldPath) =>
+        "#/properties/" + string.Join("/properties/", fieldPath.Split('/'));
 
     private static void ApplyStringHint(JsonObject schema, string key, string? value)
     {

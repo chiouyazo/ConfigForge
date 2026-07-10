@@ -80,12 +80,12 @@ public sealed class PluginLoader : IPluginLoader
 
     private void LoadAssemblyCore(string assemblyPath)
     {
-        string contextName = Path.GetFileNameWithoutExtension(assemblyPath);
-        AssemblyLoadContext context = new(contextName, isCollectible: true);
+        string fullPath = Path.GetFullPath(assemblyPath);
+        PluginLoadContext context = new(fullPath);
 
         try
         {
-            Assembly assembly = context.LoadFromAssemblyPath(Path.GetFullPath(assemblyPath));
+            Assembly assembly = context.LoadFromAssemblyPath(fullPath);
             int loaded = 0;
 
             foreach (Type type in assembly.GetTypes())
@@ -121,7 +121,53 @@ public sealed class PluginLoader : IPluginLoader
         }
         catch (ReflectionTypeLoadException ex)
         {
-            _logger.Error(ex, "Failed to load types from {Assembly}.", assemblyPath);
+            // The loader exceptions name the missing dependency, which is the actionable detail
+            // (e.g. a third-party package the plugin references but did not ship alongside itself).
+            string missing = string.Join(
+                "; ",
+                ex.LoaderExceptions.Where(e => e is not null).Select(e => e!.Message).Distinct()
+            );
+            _logger.Error(
+                ex,
+                "Failed to load types from {Assembly}. Missing/unloadable dependencies: {Missing}",
+                assemblyPath,
+                string.IsNullOrEmpty(missing) ? "(none reported)" : missing
+            );
+        }
+    }
+
+    /// <summary>
+    /// A collectible load context for one plugin. Its private dependencies resolve from the
+    /// plugin's own folder (via its <c>.deps.json</c>), while the shared ConfigForge contracts —
+    /// and any framework assembly — are left to the host's default context so their types keep a
+    /// single identity across the host/plugin boundary. Without this, a plugin that references
+    /// any package the host doesn't also load fails to load entirely.
+    /// </summary>
+    private sealed class PluginLoadContext : AssemblyLoadContext
+    {
+        private readonly AssemblyDependencyResolver _resolver;
+
+        public PluginLoadContext(string mainAssemblyPath)
+            : base(Path.GetFileNameWithoutExtension(mainAssemblyPath), isCollectible: true) =>
+            _resolver = new AssemblyDependencyResolver(mainAssemblyPath);
+
+        protected override Assembly? Load(AssemblyName assemblyName)
+        {
+            // Shared contracts must be the host's copy (return null → default context resolves it),
+            // otherwise the plugin's IPlugin/IConfigControl would be a different type than the host's.
+            if (assemblyName.Name?.StartsWith("ConfigForge.", StringComparison.Ordinal) == true)
+            {
+                return null;
+            }
+
+            string? path = _resolver.ResolveAssemblyToPath(assemblyName);
+            return path is null ? null : LoadFromAssemblyPath(path);
+        }
+
+        protected override IntPtr LoadUnmanagedDll(string unmanagedDllName)
+        {
+            string? path = _resolver.ResolveUnmanagedDllToPath(unmanagedDllName);
+            return path is null ? IntPtr.Zero : LoadUnmanagedDllFromPath(path);
         }
     }
 }

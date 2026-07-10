@@ -419,4 +419,77 @@ public sealed class ClrSchemaGeneratorTests
         ConfigSchema schema = GenerateOptionsSample();
         Assert.Equal("secret", schema.Fields["token"].ControlType);
     }
+
+    [CfCategoryMeta("General", Icon = "gear", Description = "The basics.")]
+    [CfAction("ping", Label = "Ping", Category = "General", Icon = "signal")]
+    private sealed record DecoratedConfig
+    {
+        [CfCategory("General")]
+        public bool Enabled { get; init; }
+
+        [CfCategory("General")]
+        [CfEnableWhen("enabled")]
+        public string? Endpoint { get; init; }
+
+        [CfCategory("General")]
+        public string? Mode { get; init; }
+
+        [CfCategory("General")]
+        [CfVisibleWhen("mode", "advanced")]
+        public int? Threshold { get; init; }
+    }
+
+    private static ConfigSchema GenerateDecorated()
+    {
+        Assert.NotNull(new DecoratedConfig());
+        string json = new ClrSchemaGenerator().Generate<DecoratedConfig>(
+            new SchemaGenerationOptions { Id = "dec", Name = "Dec" }
+        );
+        return new JsonFormsSchemaParser().Parse(json);
+    }
+
+    [Fact]
+    public void CfCategoryMeta_SetsIconAndDescription()
+    {
+        ConfigSchema schema = GenerateDecorated();
+        CategoryElement general = schema.Categories.Single(c =>
+            string.Equals(c.Label, "General", StringComparison.Ordinal)
+        );
+
+        Assert.Equal("gear", general.Icon);
+        Assert.Equal("The basics.", general.Description);
+    }
+
+    [Fact]
+    public void CfAction_BecomesSchemaAction()
+    {
+        ConfigSchema schema = GenerateDecorated();
+        ActionDefinition ping = schema.Actions.Single(a =>
+            string.Equals(a.ActionId, "ping", StringComparison.Ordinal)
+        );
+
+        Assert.Equal("Ping", ping.Label);
+        Assert.Equal("General", ping.Category);
+        Assert.Equal("signal", ping.Icon);
+    }
+
+    [Fact]
+    public void CfEnableWhen_EmitsInlineEnableRule()
+    {
+        ConfigSchema schema = GenerateDecorated();
+        JsonFormsRule rule = Assert.Single(schema.Fields["endpoint"].Rules);
+
+        Assert.Equal(RuleEffect.Enable, rule.Effect);
+        Assert.Equal("#/properties/enabled", rule.Condition.Scope);
+    }
+
+    [Fact]
+    public void CfVisibleWhen_EmitsInlineShowRule()
+    {
+        ConfigSchema schema = GenerateDecorated();
+        JsonFormsRule rule = Assert.Single(schema.Fields["threshold"].Rules);
+
+        Assert.Equal(RuleEffect.Show, rule.Effect);
+        Assert.Equal("#/properties/mode", rule.Condition.Scope);
+    }
 }
