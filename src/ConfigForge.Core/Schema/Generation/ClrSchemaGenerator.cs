@@ -333,6 +333,8 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
             "x-section",
             property.GetCustomAttribute<CfSectionAttribute>()?.Section ?? options2?.Section
         );
+        // Inline so the layout pass can lay rows out horizontally at any nesting depth.
+        ApplyStringHint(schema, "x-row", property.GetCustomAttribute<CfRowAttribute>()?.Row);
         ApplyStringHint(
             schema,
             "x-loader",
@@ -786,22 +788,20 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
                 .Select(p => new CategoryMember(
                     ResolvePropertyName(p, options),
                     p.GetCustomAttribute<CfGroupAttribute>()?.Group ?? Options(p)?.Group,
-                    p.GetCustomAttribute<CfCategoryAttribute>()?.Category ?? Options(p)?.Category,
-                    p.GetCustomAttribute<CfSectionAttribute>()?.Section ?? Options(p)?.Section,
-                    p.GetCustomAttribute<CfRowAttribute>()?.Row
+                    p.GetCustomAttribute<CfCategoryAttribute>()?.Category ?? Options(p)?.Category
                 )),
         ];
 
         bool anyGroup = roots.Exists(r => r.GroupName is not null);
         bool anyCategory = roots.Exists(r => r.CategoryName is not null);
-        bool anySection = roots.Exists(r => r.Section is not null);
-        bool anyRow = roots.Exists(r => r.Row is not null);
-        if (!anyGroup && !anyCategory && !anySection && !anyRow)
+        JsonObject properties = schema["properties"] as JsonObject ?? [];
+
+        // Sections and rows come from x-section/x-row anywhere in the schema (any depth), so a
+        // model needs a layout even if it declares only those and no group/category.
+        if (!anyGroup && !anyCategory && !HasLayoutHint(properties))
         {
             return null;
         }
-
-        JsonObject properties = schema["properties"] as JsonObject ?? [];
         return anyGroup
             ? BuildGroupedCategorization(roots, properties)
             : BuildFlatCategorization(roots, properties);
@@ -884,10 +884,9 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
     }
 
     /// <summary>
-    /// Builds a category's UI elements, grouping members that share a <c>[CfSection]</c>
-    /// into a titled <c>Group</c> box (in first-appearance order); sectionless members
-    /// render as bare controls. Consecutive members that share a <c>[CfRow]</c> id within the
-    /// same target are wrapped in a <c>HorizontalLayout</c> so they render side by side.
+    /// Builds a category's UI elements from its root members. The members are laid out by the
+    /// same single pass that handles nesting, so <c>[CfSection]</c> boxes and <c>[CfRow]</c>
+    /// horizontal runs work identically at the top level and at any depth below it.
     /// </summary>
     private static JsonArray BuildCategoryElements(
         List<CategoryMember> members,
@@ -895,9 +894,29 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
     )
     {
         JsonArray elements = [];
-        Dictionary<string, JsonArray> sections = new(StringComparer.Ordinal);
+        AppendChildren(
+            elements,
+            members
+                .Select(m => (m.Name, Node: properties[m.Name] as JsonObject))
+                .Where(m => m.Node is not null)
+                .Select(m => (m.Name, m.Node!))
+        );
+        return elements;
+    }
 
-        // An open horizontal run: the target list it belongs to, its row id, and its controls.
+    /// <summary>
+    /// The single layout pass: lays a sequence of (key, schema-node) children into
+    /// <paramref name="target"/>, wrapping <c>x-section</c> members in a titled <c>Group</c>
+    /// box (first-appearance order, one box per section within this level) and consecutive
+    /// <c>x-row</c> members in a <c>HorizontalLayout</c>. Recurses into plain objects, so the
+    /// same rules apply at every depth.
+    /// </summary>
+    private static void AppendChildren(
+        JsonArray target,
+        IEnumerable<(string Key, JsonObject Node)> children
+    )
+    {
+        Dictionary<string, JsonArray> sections = new(StringComparer.Ordinal);
         JsonArray? rowTarget = null;
         string? rowId = null;
         JsonArray? rowElements = null;
@@ -914,52 +933,49 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
             rowElements = null;
         }
 
-        foreach (CategoryMember member in members)
+        foreach ((string key, JsonObject node) in children)
         {
-            JsonArray target;
-            if (member.Section is null)
+            string? section = (node["x-section"] as JsonValue)?.GetValue<string>();
+            JsonArray sectionTarget = target;
+            if (!string.IsNullOrEmpty(section))
             {
-                target = elements;
-            }
-            else if (sections.TryGetValue(member.Section, out JsonArray? groupElements))
-            {
-                target = groupElements;
-            }
-            else
-            {
-                groupElements = [];
-                sections[member.Section] = groupElements;
-                elements.Add(Group(member.Section, groupElements));
-                target = groupElements;
+                if (!sections.TryGetValue(section, out JsonArray? box))
+                {
+                    box = [];
+                    sections[section] = box;
+                    target.Add(Group(section, box));
+                }
+
+                sectionTarget = box;
             }
 
-            if (member.Row is { Length: > 0 } row)
+            string? row = (node["x-row"] as JsonValue)?.GetValue<string>();
+            if (!string.IsNullOrEmpty(row))
             {
                 if (
                     !(
                         rowElements is not null
-                        && rowTarget == target
+                        && rowTarget == sectionTarget
                         && string.Equals(rowId, row, StringComparison.Ordinal)
                     )
                 )
                 {
                     FlushRow();
-                    rowTarget = target;
+                    rowTarget = sectionTarget;
                     rowId = row;
                     rowElements = [];
                 }
 
-                AppendLeafControls(rowElements!, properties, member.Name);
+                AppendControls(rowElements!, node, key);
             }
             else
             {
                 FlushRow();
-                AppendLeafControls(target, properties, member.Name);
+                AppendControls(sectionTarget, node, key);
             }
         }
 
         FlushRow();
-        return elements;
     }
 
     private static List<CategoryMember> GetOrAdd(
@@ -978,20 +994,58 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
         return members;
     }
 
-    private static void AppendLeafControls(JsonArray controls, JsonObject properties, string name)
+    /// <summary>
+    /// Emits the layout a schema node contributes, mirroring the parser's flattening: a plain
+    /// object with no explicit control recurses into its properties (via the shared
+    /// <see cref="AppendChildren"/> pass, so its children's sections/rows apply); everything else
+    /// (scalar, map, array, oneof, coded object) is a single leaf control.
+    /// </summary>
+    private static void AppendControls(JsonArray target, JsonObject node, string key)
     {
-        if (properties[name] is not JsonObject propNode)
+        if (IsLeafNode(node))
         {
+            target.Add(Control(key));
             return;
         }
 
-        foreach (string leaf in LeafKeys(propNode, name))
+        AppendChildren(target, ChildNodes(node, key));
+    }
+
+    private static IEnumerable<(string Key, JsonObject Node)> ChildNodes(
+        JsonObject node,
+        string keyPrefix
+    )
+    {
+        JsonObject props = (JsonObject)node["properties"]!;
+        foreach (KeyValuePair<string, JsonNode?> entry in props)
         {
-            controls.Add(
-                new JsonObject { ["type"] = "Control", ["scope"] = JsonFormsScope.ToScope(leaf) }
-            );
+            if (entry.Value is JsonObject child)
+            {
+                yield return (JsonFormsScope.JoinKey(keyPrefix, entry.Key), child);
+            }
         }
     }
+
+    private static bool IsLeafNode(JsonObject node)
+    {
+        bool hasControl = !string.IsNullOrEmpty(
+            (node["x-control"] as JsonValue)?.GetValue<string>()
+        );
+        bool isPlainObject =
+            (
+                node["type"] is null
+                || string.Equals(
+                    (node["type"] as JsonValue)?.GetValue<string>(),
+                    "object",
+                    StringComparison.Ordinal
+                )
+            )
+            && node["properties"] is JsonObject;
+        return hasControl || !isPlainObject;
+    }
+
+    private static JsonObject Control(string key) =>
+        new() { ["type"] = "Control", ["scope"] = JsonFormsScope.ToScope(key) };
 
     private static JsonObject Category(string label, JsonArray elements) =>
         new()
@@ -1018,50 +1072,22 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
     private readonly record struct CategoryMember(
         string Name,
         string? GroupName,
-        string? CategoryName,
-        string? Section,
-        string? Row
+        string? CategoryName
     );
 
     /// <summary>
-    /// Enumerates the leaf field keys a schema node contributes, mirroring the parser's
-    /// flattening: a plain object with no explicit control recurses into its properties,
-    /// everything else (scalars, maps, arrays, oneof, coded objects) is a single leaf.
+    /// True when the schema carries any layout hint (<c>x-section</c>/<c>x-row</c>) at any depth,
+    /// so a model that declares only sections/rows (no group/category) still gets a uiSchema.
     /// </summary>
-    private static IEnumerable<string> LeafKeys(JsonObject node, string prefix)
-    {
-        bool hasControl = !string.IsNullOrEmpty(
-            (node["x-control"] as JsonValue)?.GetValue<string>()
-        );
-        bool isPlainObject =
-            (
-                node["type"] is null
-                || string.Equals(
-                    (node["type"] as JsonValue)?.GetValue<string>(),
-                    "object",
-                    StringComparison.Ordinal
-                )
-            )
-            && node["properties"] is JsonObject;
-
-        if (hasControl || !isPlainObject)
+    private static bool HasLayoutHint(JsonNode? node) =>
+        node switch
         {
-            yield return prefix;
-            yield break;
-        }
-
-        JsonObject props = (JsonObject)node["properties"]!;
-        foreach (KeyValuePair<string, JsonNode?> entry in props)
-        {
-            if (entry.Value is JsonObject child)
-            {
-                foreach (string key in LeafKeys(child, prefix + "/" + entry.Key))
-                {
-                    yield return key;
-                }
-            }
-        }
-    }
+            JsonObject obj => obj.ContainsKey("x-section")
+                || obj.ContainsKey("x-row")
+                || obj.Any(entry => HasLayoutHint(entry.Value)),
+            JsonArray array => array.Any(HasLayoutHint),
+            _ => false,
+        };
 
     private static void DeepMerge(JsonObject target, JsonObject overlay)
     {

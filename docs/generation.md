@@ -137,11 +137,11 @@ The set is empty by default, so ConfigForge stays free of any specific library's
 
 ## Layout: groups, tabs, sections
 
-The navigation has up to three levels, all driven by attributes on the top-level properties:
+The navigation has up to three levels:
 
 - `[CfGroup]` → an entry in the left sidebar.
 - `[CfCategory]` → a tab shown when that group is selected.
-- `[CfSection]` → a titled box within a tab (fields sharing a section are boxed together).
+- `[CfSection]` → a titled box within a tab (fields sharing a section are boxed together); works at any nesting depth (see below).
 
 ```csharp
 public sealed record AppConfig
@@ -162,6 +162,18 @@ public sealed record AppConfig
 ```
 
 With only `[CfCategory]` (no groups) you get a single-level tab strip. With neither, a flat page.
+
+`[CfGroup]`/`[CfCategory]` are read from the **top-level** properties (they define the outer navigation). `[CfSection]`, however, works at **any depth**: put it on a nested object's property and that object renders as its own titled box, e.g. a nested `Features` object becomes a "Features" box within its parent's tab — you are not limited to sectioning root fields.
+
+```csharp
+public sealed record ExchangeLock
+{
+    [CfSection("Features")]           // → a "Features" box, even though this is nested
+    public FeatureToggles Features { get; init; } = new();
+
+    public string? Note { get; init; }   // un-sectioned sibling: a bare field next to the box
+}
+```
 
 Inside a `oneof` variant, `[CfSection]` on the variant's properties turns into tabs within that entry — useful for a polymorphic type with many fields.
 

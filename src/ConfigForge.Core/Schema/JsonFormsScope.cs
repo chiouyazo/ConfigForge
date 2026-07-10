@@ -8,6 +8,7 @@ public static class JsonFormsScope
 {
     private const string PropertiesPrefix = "#/properties/";
     private const string PropertiesSeparator = "/properties/";
+    private const string KeySeparator = "/";
 
     /// <summary>
     /// Resolves a scope such as <c>#/properties/Parent/properties/Child</c> to the
@@ -38,4 +39,11 @@ public static class JsonFormsScope
         ArgumentNullException.ThrowIfNull(key);
         return PropertiesPrefix + key.Replace("/", PropertiesSeparator, StringComparison.Ordinal);
     }
+
+    /// <summary>Appends a child segment to a path key using the canonical separator.</summary>
+    /// <param name="keyPrefix">The parent path key.</param>
+    /// <param name="segment">The child segment to append.</param>
+    /// <returns>The combined path key.</returns>
+    public static string JoinKey(string keyPrefix, string segment) =>
+        keyPrefix + KeySeparator + segment;
 }

@@ -507,6 +507,105 @@ public sealed class ClrSchemaGeneratorTests
         public string? Other { get; init; }
     }
 
+    private sealed record ToggleSet
+    {
+        public bool Alpha { get; init; }
+        public bool Beta { get; init; }
+    }
+
+    private sealed record FeatureBlock
+    {
+        [CfSection("Features")]
+        public ToggleSet Features { get; init; } = new();
+
+        public string? Note { get; init; }
+    }
+
+    private sealed record NestedBoxConfig
+    {
+        [CfCategory("Main")]
+        public FeatureBlock ExchangeLock { get; init; } = new();
+    }
+
+    private sealed record RetryBlock
+    {
+        [CfRow("retry")]
+        public int Count { get; init; }
+
+        [CfRow("retry")]
+        public int Delay { get; init; }
+    }
+
+    private sealed record NestedRowConfig
+    {
+        [CfCategory("Main")]
+        public RetryBlock Retry { get; init; } = new();
+    }
+
+    [Fact]
+    public void CfRow_WorksInsideNestedObject()
+    {
+        Assert.NotNull(new NestedRowConfig());
+        Assert.NotNull(new RetryBlock());
+        string json = new ClrSchemaGenerator().Generate<NestedRowConfig>(
+            new SchemaGenerationOptions { Id = "nr" }
+        );
+
+        JsonArray mainElements = (JsonArray)
+            JsonNode.Parse(json)!["uiSchema"]!["elements"]![0]!["elements"]!;
+
+        // The [CfRow] on the nested Retry.Count/Delay produced a HorizontalLayout, even though
+        // the row lives two levels deep — the same behaviour as a top-level row.
+        JsonNode row = mainElements.First(e =>
+            string.Equals(
+                e!["type"]?.GetValue<string>(),
+                "HorizontalLayout",
+                StringComparison.Ordinal
+            )
+        )!;
+        Assert.Equal(2, ((JsonArray)row["elements"]!).Count);
+    }
+
+    [Fact]
+    public void CfSection_OnNestedObject_BecomesTitledBox()
+    {
+        Assert.NotNull(new NestedBoxConfig());
+        Assert.NotNull(new FeatureBlock());
+        Assert.NotNull(new ToggleSet());
+        string json = new ClrSchemaGenerator().Generate<NestedBoxConfig>(
+            new SchemaGenerationOptions { Id = "nb" }
+        );
+
+        JsonArray mainElements = (JsonArray)
+            JsonNode.Parse(json)!["uiSchema"]!["elements"]![0]!["elements"]!;
+
+        // The nested [CfSection] on ExchangeLock.Features produced a titled Group box...
+        JsonNode box = mainElements.First(e =>
+            string.Equals(e!["type"]?.GetValue<string>(), "Group", StringComparison.Ordinal)
+        )!;
+        Assert.Equal("Features", box["label"]!.GetValue<string>());
+
+        JsonArray boxControls = (JsonArray)box["elements"]!;
+        Assert.Equal(2, boxControls.Count);
+        Assert.Contains(
+            boxControls,
+            c =>
+                c!["scope"]!
+                    .GetValue<string>()
+                    .EndsWith("/properties/alpha", StringComparison.Ordinal)
+        );
+
+        // ...while the un-sectioned sibling stays a bare control outside the box.
+        Assert.Contains(
+            mainElements,
+            e =>
+                string.Equals(e!["type"]?.GetValue<string>(), "Control", StringComparison.Ordinal)
+                && e["scope"]!
+                    .GetValue<string>()
+                    .EndsWith("/properties/note", StringComparison.Ordinal)
+        );
+    }
+
     [Fact]
     public void CfRow_WrapsAdjacentFieldsInHorizontalLayout()
     {
