@@ -22,6 +22,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-pgww-w46g-26qg" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../../src/ConfigForge.Blazor/ConfigForge.Blazor.csproj" />
   </ItemGroup>
 </Project>

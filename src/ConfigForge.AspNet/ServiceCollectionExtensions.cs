@@ -54,6 +54,13 @@ public static class ServiceCollectionExtensions
 
         services.TryAddSingleton(options);
         services.TryAddSingleton<IConfigForgeHostState>(new ConfigForgeHostState(options));
+
+        // Secret protection is opt-in: the gateway picks up an IConfigSecretProtector when the host
+        // registered one, otherwise it is a transparent pass-through.
+        services.TryAddSingleton(sp => new ConfigSecretGateway(
+            sp.GetService<IConfigSecretProtector>()
+        ));
+
         services.AddHostedService<ConfigForgeDirectoryWatcher>();
 
         if (!string.IsNullOrEmpty(options.SchemaUrl))

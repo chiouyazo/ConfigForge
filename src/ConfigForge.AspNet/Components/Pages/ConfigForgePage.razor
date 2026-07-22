@@ -10,6 +10,7 @@
 @inject IJsonFormsSchemaParser Parser
 @inject IConfigDocumentEngine Engine
 @inject IConfigDocumentGenerator Generator
+@inject ConfigSecretGateway Secrets
 @inject IJSRuntime JS
 
 <div class="cf-host">
@@ -260,6 +261,7 @@
             string? persisted = await State.Options.OnLoad(_schema.Id).ConfigureAwait(false);
             if (persisted is not null)
             {
+                persisted = Secrets.RedactForEditor(_schema, persisted);
                 ConfigDocumentParseResult result = Engine.Parse(persisted, _schema);
                 SetDocument(result.Document, result, persisted);
                 return;
@@ -284,6 +286,13 @@
         }
 
         string payload = Engine.Serialize(document, _schema);
+
+        if (Secrets.Enabled && State.Options.OnLoad is not null)
+        {
+            string? stored = await State.Options.OnLoad(_schema.Id).ConfigureAwait(false);
+            payload = Secrets.MergeForStore(_schema, payload, stored);
+        }
+
         await State.Options.OnSave(_schema.Id, payload).ConfigureAwait(false);
     }
 
