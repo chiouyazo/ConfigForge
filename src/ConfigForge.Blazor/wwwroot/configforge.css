@@ -210,6 +210,11 @@ body {
 .cf-input:disabled { opacity: 0.6; cursor: not-allowed; }
 .cf-textarea { resize: vertical; }
 
+/* Password and secret inputs provide their own Show/Hide toggle, so suppress the browser's
+   native reveal/clear affordance (Edge/Chromium) that would otherwise show a second eye icon. */
+.cf-input::-ms-reveal,
+.cf-input::-ms-clear { display: none; }
+
 /* Field-level validation error */
 .cf-field-wrapper { display: contents; }
 .cf-field-error { margin: 0.15rem 0 0; font-size: 0.8rem; color: var(--cf-danger); }
@@ -265,6 +270,8 @@ body {
 
 /* Secret (write-only) */
 .cf-secret { display: flex; align-items: center; gap: 0.5rem; }
+.cf-secret-list { list-style: none; margin: 0 0 0.5rem 0; padding: 0; display: flex; flex-direction: column; gap: 0.35rem; }
+.cf-secret-list-item { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.35rem 0.5rem; border: 1px solid var(--cf-text-secondary); border-radius: var(--cf-radius); }
 .cf-secret-state { font-size: 0.85rem; color: var(--cf-text-secondary); font-family: ui-monospace, Consolas, monospace; }
 .cf-secret-new { color: var(--cf-warning); }
 .cf-secret-none { font-style: italic; }

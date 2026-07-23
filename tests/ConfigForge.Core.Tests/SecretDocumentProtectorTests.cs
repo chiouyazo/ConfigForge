@@ -185,6 +185,71 @@ public sealed class SecretDocumentProtectorTests
         Assert.Equal("enc:new1", (string?)pairs[1]!["Baseline"]!["Token"]);
     }
 
+    [Fact]
+    public void Redact_SecretScalarArray_MasksEachElementWithItsIndex()
+    {
+        string[] paths = ["RestApi/ApiKeys/*"];
+        string document = """
+            { "RestApi": { "ApiKeys": ["enc:a", "enc:b", ""] } }
+            """;
+
+        JsonArray keys = ParseObject(SecretDocumentProtector.Redact(document, paths))["RestApi"]![
+            "ApiKeys"
+        ]!.AsArray();
+
+        Assert.Equal(ConfigForgeSecret.IndexedMarker(0), (string?)keys[0]);
+        Assert.Equal(ConfigForgeSecret.IndexedMarker(1), (string?)keys[1]);
+        // An empty slot is not a stored secret, so it is left untouched.
+        Assert.Equal(string.Empty, (string?)keys[2]);
+    }
+
+    [Fact]
+    public void Merge_SecretScalarArray_RemovingMiddleKeepsCorrectStoredValues()
+    {
+        string[] paths = ["RestApi/ApiKeys/*"];
+        string stored = """
+            { "RestApi": { "ApiKeys": ["enc:zero", "enc:one", "enc:two"] } }
+            """;
+        // The editor kept elements 0 and 2 (element 1 removed) and typed a new one.
+        string incoming = $$"""
+            {
+              "RestApi": {
+                "ApiKeys": [
+                  "{{ConfigForgeSecret.IndexedMarker(0)}}",
+                  "{{ConfigForgeSecret.IndexedMarker(2)}}",
+                  "fresh-key"
+                ]
+              }
+            }
+            """;
+
+        JsonArray keys = ParseObject(
+            SecretDocumentProtector.Merge(Protector, incoming, stored, paths)
+        )["RestApi"]!["ApiKeys"]!.AsArray();
+
+        // Index-stable markers keep the right ciphertexts (zero and two, not zero and one).
+        Assert.Equal(3, keys.Count);
+        Assert.Equal("enc:zero", (string?)keys[0]);
+        Assert.Equal("enc:two", (string?)keys[1]);
+        Assert.Equal("enc:fresh-key", (string?)keys[2]);
+    }
+
+    [Fact]
+    public void Merge_SecretScalarArray_EncryptsAllNewPlaintext()
+    {
+        string[] paths = ["RestApi/ApiKeys/*"];
+        string incoming = """
+            { "RestApi": { "ApiKeys": ["k1", "k2"] } }
+            """;
+
+        JsonArray keys = ParseObject(
+            SecretDocumentProtector.Merge(Protector, incoming, storedJson: null, paths)
+        )["RestApi"]!["ApiKeys"]!.AsArray();
+
+        Assert.Equal("enc:k1", (string?)keys[0]);
+        Assert.Equal("enc:k2", (string?)keys[1]);
+    }
+
     private static JsonObject ParseObject(string json) => (JsonObject)JsonNode.Parse(json)!;
 
     private sealed class FakeProtector : IConfigSecretProtector

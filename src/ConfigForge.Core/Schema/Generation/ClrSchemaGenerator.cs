@@ -291,11 +291,38 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
         int depth
     )
     {
-        string? controlOverride = ResolveControlOverride(property, options);
+        bool secret = IsSecret(property, options);
+        bool secretList =
+            secret
+            && TryGetEnumerableElementType(
+                Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType,
+                out Type elementType
+            )
+            && elementType == typeof(string);
 
-        JsonObject schema = IsSecret(property, options)
-            ? new JsonObject { ["type"] = "string" }
-            : BuildTypeSchema(property.PropertyType, options, visited, depth);
+        string? controlOverride = secretList
+            ? "secretlist"
+            : ResolveControlOverride(property, options);
+
+        JsonObject schema;
+        if (secretList)
+        {
+            // A secret string collection: an array whose items carry the secret control, so the
+            // editor manages each element write-only and the host encrypts each at rest.
+            schema = new JsonObject
+            {
+                ["type"] = "array",
+                ["items"] = new JsonObject { ["type"] = "string", ["x-control"] = "secret" },
+            };
+        }
+        else if (secret)
+        {
+            schema = new JsonObject { ["type"] = "string" };
+        }
+        else
+        {
+            schema = BuildTypeSchema(property.PropertyType, options, visited, depth);
+        }
 
         schema["title"] = ResolveTitle(property);
 

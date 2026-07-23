@@ -104,7 +104,9 @@ public static class SecretDocumentProtector
                     {
                         if (ShouldRedact(array[i]))
                         {
-                            array[i] = ConfigForgeSecret.StoredMarker;
+                            // Indexed so a kept element resolves back to its stored value even
+                            // after the list is reordered or an element is removed.
+                            array[i] = ConfigForgeSecret.IndexedMarker(i);
                         }
                     }
                     else
@@ -173,16 +175,20 @@ public static class SecretDocumentProtector
             if (incoming is JsonArray array)
             {
                 JsonArray? storedArray = stored as JsonArray;
-                for (int i = 0; i < array.Count; i++)
+                if (last)
                 {
-                    JsonNode? storedItem =
-                        storedArray is not null && i < storedArray.Count ? storedArray[i] : null;
-                    if (last)
+                    // A secret array leaf: rebuild it so removed elements drop out and kept ones
+                    // resolve by their recorded index (see MergeSecretArrayLeaf).
+                    MergeSecretArrayLeaf(protector, array, storedArray);
+                }
+                else
+                {
+                    for (int i = 0; i < array.Count; i++)
                     {
-                        ApplyInArray(protector, array, i, storedItem);
-                    }
-                    else
-                    {
+                        JsonNode? storedItem =
+                            storedArray is not null && i < storedArray.Count
+                                ? storedArray[i]
+                                : null;
                         MergePath(protector, array[i], storedItem, segments, index + 1);
                     }
                 }
@@ -240,21 +246,58 @@ public static class SecretDocumentProtector
         }
     }
 
-    private static void ApplyInArray(
+    /// <summary>
+    /// Rebuilds a secret array leaf: a removed or emptied element drops out, a kept element (a
+    /// stored marker) resolves to its stored value by the index the marker records (falling back
+    /// to its current position for a plain marker), and any new plaintext is encrypted. Rebuilding
+    /// rather than editing in place is what makes removing a middle element correct: kept markers
+    /// still carry their original stored index, so no element is paired with the wrong ciphertext.
+    /// </summary>
+    private static void MergeSecretArrayLeaf(
         IConfigSecretProtector protector,
-        JsonArray parent,
-        int index,
-        JsonNode? stored
+        JsonArray incoming,
+        JsonArray? stored
     )
     {
-        (bool remove, JsonNode? replacement) = Resolve(protector, parent[index], stored);
-        if (remove)
+        List<JsonNode?> resolved = [];
+        for (int i = 0; i < incoming.Count; i++)
         {
-            parent[index] = string.Empty;
+            string? value = AsString(incoming[i]);
+
+            if (ConfigForgeSecret.IsStoredMarker(value))
+            {
+                int storedIndex = ConfigForgeSecret.TryGetStoredIndex(value, out int parsed)
+                    ? parsed
+                    : i;
+                if (
+                    stored is not null
+                    && storedIndex >= 0
+                    && storedIndex < stored.Count
+                    && AsString(stored[storedIndex]) is { } keptValue
+                )
+                {
+                    resolved.Add(JsonValue.Create(keptValue));
+                }
+
+                // A marker whose stored value is gone is simply dropped.
+                continue;
+            }
+
+            if (string.IsNullOrEmpty(value))
+            {
+                // Removed element.
+                continue;
+            }
+
+            resolved.Add(
+                JsonValue.Create(protector.IsProtected(value) ? value : protector.Protect(value))
+            );
         }
-        else if (replacement is not null)
+
+        incoming.Clear();
+        foreach (JsonNode? node in resolved)
         {
-            parent[index] = replacement;
+            incoming.Add(node);
         }
     }
 

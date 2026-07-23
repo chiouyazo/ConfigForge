@@ -59,6 +59,9 @@ public sealed class ClrSchemaGeneratorTests
         [CfSecret]
         public string? Password { get; init; }
 
+        [CfSecret]
+        public IReadOnlyList<string> ApiKeys { get; init; } = [];
+
         public Speed Speed { get; init; }
 
         [CfControl("textarea")]
@@ -132,6 +135,24 @@ public sealed class ClrSchemaGeneratorTests
     {
         ConfigSchema schema = Generate();
         Assert.False(schema.Fields.ContainsKey("legacy"));
+    }
+
+    [Fact]
+    public void SecretStringCollection_BecomesSecretListWithSecretItems()
+    {
+        // Raw JSON: an array whose items carry the secret control.
+        string json = new ClrSchemaGenerator().Generate<SampleConfig>(new() { Id = "sample" });
+        JsonNode apiKeys = JsonNode.Parse(json)!["schema"]!["properties"]!["apiKeys"]!;
+        Assert.Equal("array", (string?)apiKeys["type"]);
+        Assert.Equal("secretlist", (string?)apiKeys["x-control"]);
+        Assert.Equal("secret", (string?)apiKeys["items"]!["x-control"]);
+
+        // Parsed: a secretlist field whose per-element template is a secret, so the gateway
+        // encrypts each element via the "apiKeys/*" wildcard.
+        ConfigSchema schema = Generate();
+        FieldDefinition field = schema.Fields["apiKeys"];
+        Assert.Equal("secretlist", field.ControlType);
+        Assert.Equal("secret", field.ValueField?.ControlType);
     }
 
     [Fact]

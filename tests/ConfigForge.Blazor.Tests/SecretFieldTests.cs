@@ -105,4 +105,37 @@ public sealed class SecretFieldTests : BunitContext
         (IRenderedComponent<ConfigForgeShell> cut, _) = RenderWith(null!);
         Assert.Contains(cut.FindAll(".cf-main button"), b => b.TextContent.Trim() == "Set secret");
     }
+
+    [Fact]
+    public void RevealToggle_KeepsTypedValue()
+    {
+        (IRenderedComponent<ConfigForgeShell> cut, EditingSession session) = RenderWith(null!);
+
+        cut.FindAll(".cf-main button").First(b => b.TextContent.Trim() == "Set secret").Click();
+        cut.Find(".cf-main input").Input("typed-secret");
+        cut.FindAll(".cf-main button").First(b => b.TextContent.Trim() == "Show").Click();
+
+        // Toggling reveal re-renders the input; the typed value must survive it.
+        Assert.Equal("typed-secret", cut.Find(".cf-main input").GetAttribute("value"));
+
+        cut.FindAll(".cf-main button").First(b => b.TextContent.Trim() == "Done").Click();
+        Assert.Equal("typed-secret", session.Document["ApiKey"]);
+    }
+
+    [Fact]
+    public void Cancel_RestoresPreviousValue()
+    {
+        (IRenderedComponent<ConfigForgeShell> cut, EditingSession session) = RenderWith(
+            ConfigForgeSecret.StoredMarker
+        );
+
+        cut.FindAll(".cf-main button").First(b => b.TextContent.Trim() == "Change").Click();
+        cut.Find(".cf-main input").Change("committed-then-cancelled");
+        Assert.Equal("committed-then-cancelled", session.Document["ApiKey"]);
+
+        cut.FindAll(".cf-main button").First(b => b.TextContent.Trim() == "Cancel").Click();
+
+        Assert.Equal(ConfigForgeSecret.StoredMarker, session.Document["ApiKey"]);
+        Assert.Contains(cut.FindAll(".cf-main button"), b => b.TextContent.Trim() == "Change");
+    }
 }

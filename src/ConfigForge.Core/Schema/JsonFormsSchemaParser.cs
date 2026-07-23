@@ -291,6 +291,16 @@ public sealed partial class JsonFormsSchemaParser : IJsonFormsSchemaParser
             valueField = BuildValueField(valueSchema, rootSchema);
         }
         else if (
+            string.Equals(controlType, "secretlist", StringComparison.Ordinal)
+            && ResolveRef(propSchema["items"] as JsonObject, rootSchema)
+                is JsonObject secretItemSchema
+        )
+        {
+            // The per-element template carries the item's secret control, so the secret gateway
+            // collects the "<key>/*" wildcard path and encrypts each element at rest.
+            valueField = BuildValueField(secretItemSchema, rootSchema);
+        }
+        else if (
             string.Equals(controlType, "oneof", StringComparison.Ordinal)
             && propSchema["oneOf"] is JsonArray variantNodes
         )

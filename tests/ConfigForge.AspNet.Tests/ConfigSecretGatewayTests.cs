@@ -89,6 +89,49 @@ public sealed class ConfigSecretGatewayTests
     }
 
     [Fact]
+    public void SecretList_RedactsWithIndexedMarkers_AndEncryptsNewOnStore()
+    {
+        ConfigSchema schema = new()
+        {
+            Fields = new Dictionary<string, FieldDefinition>(StringComparer.Ordinal)
+            {
+                ["RestApi/ApiKeys"] = new FieldDefinition
+                {
+                    Key = "RestApi/ApiKeys",
+                    ControlType = "secretlist",
+                    ValueField = new FieldDefinition { Key = string.Empty, ControlType = "secret" },
+                },
+            },
+        };
+        ConfigSecretGateway gateway = new(new FakeProtector());
+
+        string redacted = gateway.RedactForEditor(
+            schema,
+            """
+            { "RestApi": { "ApiKeys": ["enc:a", "enc:b"] } }
+            """
+        );
+        JsonArray keys = ((JsonObject)JsonNode.Parse(redacted)!)["RestApi"]!["ApiKeys"]!.AsArray();
+        Assert.Equal(ConfigForgeSecret.IndexedMarker(0), (string?)keys[0]);
+        Assert.Equal(ConfigForgeSecret.IndexedMarker(1), (string?)keys[1]);
+
+        string stored = gateway.MergeForStore(
+            schema,
+            $$"""
+            { "RestApi": { "ApiKeys": ["{{ConfigForgeSecret.IndexedMarker(1)}}", "new-key"] } }
+            """,
+            """
+            { "RestApi": { "ApiKeys": ["enc:a", "enc:b"] } }
+            """
+        );
+        JsonArray storedKeys = ((JsonObject)JsonNode.Parse(stored)!)["RestApi"]![
+            "ApiKeys"
+        ]!.AsArray();
+        Assert.Equal("enc:b", (string?)storedKeys[0]);
+        Assert.Equal("enc:new-key", (string?)storedKeys[1]);
+    }
+
+    [Fact]
     public void PassThrough_WhenNoProtectorRegistered()
     {
         ConfigSecretGateway gateway = new();
