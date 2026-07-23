@@ -132,6 +132,59 @@ public sealed class SecretDocumentProtectorTests
         Assert.Equal("a@x", (string?)result["Alerts"]!["Recipients"]!.AsArray()[0]);
     }
 
+    [Fact]
+    public void Redact_ArrayNestedSecret_MasksEverySetElement()
+    {
+        string[] paths = ["Pairs/*/Baseline/Token"];
+        string document = """
+            { "Pairs": [ { "Baseline": { "Token": "enc:a", "Url": "u1" } }, { "Baseline": { "Token": "", "Url": "u2" } } ] }
+            """;
+
+        JsonObject result = ParseObject(SecretDocumentProtector.Redact(document, paths));
+        JsonArray pairs = result["Pairs"]!.AsArray();
+
+        Assert.Equal(ConfigForgeSecret.StoredMarker, (string?)pairs[0]!["Baseline"]!["Token"]);
+        Assert.Equal("u1", (string?)pairs[0]!["Baseline"]!["Url"]);
+        Assert.Equal(string.Empty, (string?)pairs[1]!["Baseline"]!["Token"]);
+    }
+
+    [Fact]
+    public void Merge_ArrayNestedSecret_EncryptsNewPlaintextPerElement()
+    {
+        string[] paths = ["Pairs/*/Baseline/Token"];
+        string incoming = """
+            { "Pairs": [ { "Baseline": { "Token": "p0" } }, { "Baseline": { "Token": "p1" } } ] }
+            """;
+
+        JsonObject result = ParseObject(
+            SecretDocumentProtector.Merge(Protector, incoming, storedJson: null, paths)
+        );
+        JsonArray pairs = result["Pairs"]!.AsArray();
+
+        Assert.Equal("enc:p0", (string?)pairs[0]!["Baseline"]!["Token"]);
+        Assert.Equal("enc:p1", (string?)pairs[1]!["Baseline"]!["Token"]);
+    }
+
+    [Fact]
+    public void Merge_ArrayNestedSecret_MarkerKeepsStoredValueByIndex()
+    {
+        string[] paths = ["Pairs/*/Baseline/Token"];
+        string stored = """
+            { "Pairs": [ { "Baseline": { "Token": "enc:zero" } }, { "Baseline": { "Token": "enc:one" } } ] }
+            """;
+        string incoming = $$"""
+            { "Pairs": [ { "Baseline": { "Token": "{{ConfigForgeSecret.StoredMarker}}" } }, { "Baseline": { "Token": "new1" } } ] }
+            """;
+
+        JsonObject result = ParseObject(
+            SecretDocumentProtector.Merge(Protector, incoming, stored, paths)
+        );
+        JsonArray pairs = result["Pairs"]!.AsArray();
+
+        Assert.Equal("enc:zero", (string?)pairs[0]!["Baseline"]!["Token"]);
+        Assert.Equal("enc:new1", (string?)pairs[1]!["Baseline"]!["Token"]);
+    }
+
     private static JsonObject ParseObject(string json) => (JsonObject)JsonNode.Parse(json)!;
 
     private sealed class FakeProtector : IConfigSecretProtector

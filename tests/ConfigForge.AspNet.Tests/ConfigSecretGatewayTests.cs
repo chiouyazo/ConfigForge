@@ -58,6 +58,37 @@ public sealed class ConfigSecretGatewayTests
     }
 
     [Fact]
+    public void RedactForEditor_HidesSecretNestedInArray_WhenProtectorRegistered()
+    {
+        ConfigSchema schema = new()
+        {
+            Fields = new Dictionary<string, FieldDefinition>(StringComparer.Ordinal)
+            {
+                ["Pairs"] = new FieldDefinition
+                {
+                    Key = "Pairs",
+                    ControlType = "arrayobject",
+                    Children =
+                    [
+                        new FieldDefinition { Key = "Baseline/Token", ControlType = "secret" },
+                        new FieldDefinition { Key = "Name", ControlType = "text" },
+                    ],
+                },
+            },
+        };
+        ConfigSecretGateway gateway = new(new FakeProtector());
+        string document = """
+            { "Pairs": [ { "Baseline": { "Token": "enc:secret" }, "Name": "one" } ] }
+            """;
+
+        JsonObject result = (JsonObject)JsonNode.Parse(gateway.RedactForEditor(schema, document))!;
+        JsonNode pair = result["Pairs"]!.AsArray()[0]!;
+
+        Assert.Equal(ConfigForgeSecret.StoredMarker, (string?)pair["Baseline"]!["Token"]);
+        Assert.Equal("one", (string?)pair["Name"]);
+    }
+
+    [Fact]
     public void PassThrough_WhenNoProtectorRegistered()
     {
         ConfigSecretGateway gateway = new();

@@ -11,6 +11,10 @@ namespace ConfigForge.AspNet;
 /// </summary>
 public sealed class ConfigSecretGateway
 {
+    private const string Separator = "/";
+    private const string Wildcard = "*";
+    private const string SecretControl = "secret";
+
     private readonly IConfigSecretProtector? _protector;
 
     /// <summary>Creates a gateway over the optionally registered secret cipher.</summary>
@@ -41,7 +45,7 @@ public sealed class ConfigSecretGateway
             return documentJson;
         }
 
-        IReadOnlyList<string> paths = SecretPaths(schema);
+        List<string> paths = SecretPaths(schema);
         return paths.Count == 0
             ? documentJson
             : SecretDocumentProtector.Redact(documentJson, paths);
@@ -66,18 +70,60 @@ public sealed class ConfigSecretGateway
             return incomingJson;
         }
 
-        IReadOnlyList<string> paths = SecretPaths(schema);
+        List<string> paths = SecretPaths(schema);
         return paths.Count == 0
             ? incomingJson
             : SecretDocumentProtector.Merge(_protector, incomingJson, storedJson, paths);
     }
 
-    private static IReadOnlyList<string> SecretPaths(ConfigSchema schema) =>
-        [
-            .. schema
-                .Fields.Where(field =>
-                    string.Equals(field.Value.ControlType, "secret", StringComparison.Ordinal)
-                )
-                .Select(field => field.Key),
-        ];
+    private static List<string> SecretPaths(ConfigSchema schema)
+    {
+        List<string> paths = [];
+        foreach (FieldDefinition field in schema.Fields.Values)
+        {
+            CollectSecretPaths(field, field.Key, paths);
+        }
+
+        return paths;
+    }
+
+    private static void CollectSecretPaths(FieldDefinition field, string path, List<string> paths)
+    {
+        if (string.Equals(field.ControlType, SecretControl, StringComparison.Ordinal))
+        {
+            paths.Add(path);
+            return;
+        }
+
+        foreach (FieldDefinition child in field.Children)
+        {
+            CollectSecretPaths(child, path + Separator + Wildcard + Separator + child.Key, paths);
+        }
+
+        if (field.ValueField is not null)
+        {
+            string valuePath = path + Separator + Wildcard;
+            if (
+                string.Equals(field.ValueField.ControlType, SecretControl, StringComparison.Ordinal)
+            )
+            {
+                paths.Add(valuePath);
+            }
+            else
+            {
+                foreach (FieldDefinition child in field.ValueField.Children)
+                {
+                    CollectSecretPaths(child, valuePath + Separator + child.Key, paths);
+                }
+            }
+        }
+
+        foreach (OneOfVariant variant in field.OneOfVariants)
+        {
+            foreach (FieldDefinition child in variant.Children)
+            {
+                CollectSecretPaths(child, path + Separator + child.Key, paths);
+            }
+        }
+    }
 }

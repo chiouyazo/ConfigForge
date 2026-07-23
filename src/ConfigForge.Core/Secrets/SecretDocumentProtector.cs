@@ -19,13 +19,16 @@ namespace ConfigForge.Core.Secrets;
 /// </para>
 /// <para>
 /// Secret paths are <c>/</c>-separated property paths into the (nested) document, one per
-/// field whose control type is <c>secret</c>. Secret controls are single string values, so
-/// only object navigation is performed; a path that does not resolve to an object property
-/// is left untouched.
+/// field whose control type is <c>secret</c>. A <c>*</c> segment fans the remaining path
+/// out over every element of an array or every value of a map, so secrets nested inside
+/// collections (for example <c>items/*/token</c>) are protected too. Element/value
+/// matching between the incoming and stored documents is by array index and by map key.
 /// </para>
 /// </remarks>
 public static class SecretDocumentProtector
 {
+    private const string Wildcard = "*";
+
     /// <summary>
     /// Returns <paramref name="documentJson"/> with every present secret value replaced by
     /// <see cref="ConfigForgeSecret.StoredMarker"/>, so the editor learns a secret is set
@@ -42,16 +45,7 @@ public static class SecretDocumentProtector
         JsonObject root = Parse(documentJson);
         foreach (string path in secretPaths)
         {
-            string[] segments = path.Split('/');
-            if (
-                TryGetParent(root, segments, out JsonObject? parent)
-                && parent![segments[^1]] is JsonValue value
-                && value.TryGetValue(out string? stored)
-                && !string.IsNullOrEmpty(stored)
-            )
-            {
-                parent[segments[^1]] = ConfigForgeSecret.StoredMarker;
-            }
+            RedactPath(root, path.Split('/'), 0);
         }
 
         return root.ToJsonString();
@@ -80,82 +74,218 @@ public static class SecretDocumentProtector
         ArgumentNullException.ThrowIfNull(secretPaths);
 
         JsonObject incoming = Parse(incomingJson);
-        JsonObject? stored = storedJson is null ? null : Parse(storedJson);
+        JsonObject? stored = storedJson is null ? null : JsonNode.Parse(storedJson) as JsonObject;
 
         foreach (string path in secretPaths)
         {
-            string[] segments = path.Split('/');
-            if (!TryGetParent(incoming, segments, out JsonObject? parent))
-            {
-                continue;
-            }
-
-            string leaf = segments[^1];
-            JsonNode? node = parent![leaf];
-            string? value = node is JsonValue jv && jv.TryGetValue(out string? s) ? s : null;
-
-            if (node is null || string.IsNullOrEmpty(value))
-            {
-                // Cleared (or never set): do not persist an empty secret.
-                parent.Remove(leaf);
-            }
-            else if (string.Equals(value, ConfigForgeSecret.StoredMarker, StringComparison.Ordinal))
-            {
-                // Untouched: carry the stored value across unchanged, or drop it if none exists.
-                string? current = StoredValue(stored, segments);
-                if (current is null)
-                {
-                    parent.Remove(leaf);
-                }
-                else
-                {
-                    parent[leaf] = current;
-                }
-            }
-            else if (!protector.IsProtected(value))
-            {
-                // Newly entered plaintext: encrypt it. An already-protected value is left as is.
-                parent[leaf] = protector.Protect(value);
-            }
+            MergePath(protector, incoming, stored, path.Split('/'), 0);
         }
 
         return incoming.ToJsonString();
     }
 
-    private static string? StoredValue(JsonObject? stored, string[] segments)
+    private static void RedactPath(JsonNode? node, string[] segments, int index)
     {
-        if (
-            stored is not null
-            && TryGetParent(stored, segments, out JsonObject? parent)
-            && parent![segments[^1]] is JsonValue value
-            && value.TryGetValue(out string? current)
-        )
+        if (node is null)
         {
-            return current;
+            return;
         }
 
-        return null;
-    }
+        string segment = segments[index];
+        bool last = index == segments.Length - 1;
 
-    private static bool TryGetParent(JsonObject root, string[] segments, out JsonObject? parent)
-    {
-        JsonObject current = root;
-        for (int i = 0; i < segments.Length - 1; i++)
+        if (string.Equals(segment, Wildcard, StringComparison.Ordinal))
         {
-            if (current[segments[i]] is JsonObject next)
+            if (node is JsonArray array)
             {
-                current = next;
+                for (int i = 0; i < array.Count; i++)
+                {
+                    if (last)
+                    {
+                        if (ShouldRedact(array[i]))
+                        {
+                            array[i] = ConfigForgeSecret.StoredMarker;
+                        }
+                    }
+                    else
+                    {
+                        RedactPath(array[i], segments, index + 1);
+                    }
+                }
             }
-            else
+            else if (node is JsonObject map)
             {
-                parent = null;
-                return false;
+                foreach (string key in map.Select(entry => entry.Key).ToList())
+                {
+                    if (last)
+                    {
+                        if (ShouldRedact(map[key]))
+                        {
+                            map[key] = ConfigForgeSecret.StoredMarker;
+                        }
+                    }
+                    else
+                    {
+                        RedactPath(map[key], segments, index + 1);
+                    }
+                }
             }
+
+            return;
         }
 
-        parent = current;
-        return true;
+        if (node is not JsonObject obj)
+        {
+            return;
+        }
+
+        if (last)
+        {
+            if (ShouldRedact(obj[segment]))
+            {
+                obj[segment] = ConfigForgeSecret.StoredMarker;
+            }
+        }
+        else
+        {
+            RedactPath(obj[segment], segments, index + 1);
+        }
     }
+
+    private static void MergePath(
+        IConfigSecretProtector protector,
+        JsonNode? incoming,
+        JsonNode? stored,
+        string[] segments,
+        int index
+    )
+    {
+        if (incoming is null)
+        {
+            return;
+        }
+
+        string segment = segments[index];
+        bool last = index == segments.Length - 1;
+
+        if (string.Equals(segment, Wildcard, StringComparison.Ordinal))
+        {
+            if (incoming is JsonArray array)
+            {
+                JsonArray? storedArray = stored as JsonArray;
+                for (int i = 0; i < array.Count; i++)
+                {
+                    JsonNode? storedItem =
+                        storedArray is not null && i < storedArray.Count ? storedArray[i] : null;
+                    if (last)
+                    {
+                        ApplyInArray(protector, array, i, storedItem);
+                    }
+                    else
+                    {
+                        MergePath(protector, array[i], storedItem, segments, index + 1);
+                    }
+                }
+            }
+            else if (incoming is JsonObject map)
+            {
+                JsonObject? storedMap = stored as JsonObject;
+                foreach (string key in map.Select(entry => entry.Key).ToList())
+                {
+                    if (last)
+                    {
+                        ApplyInObject(protector, map, key, storedMap?[key]);
+                    }
+                    else
+                    {
+                        MergePath(protector, map[key], storedMap?[key], segments, index + 1);
+                    }
+                }
+            }
+
+            return;
+        }
+
+        if (incoming is not JsonObject obj)
+        {
+            return;
+        }
+
+        JsonObject? storedObj = stored as JsonObject;
+        if (last)
+        {
+            ApplyInObject(protector, obj, segment, storedObj?[segment]);
+        }
+        else
+        {
+            MergePath(protector, obj[segment], storedObj?[segment], segments, index + 1);
+        }
+    }
+
+    private static void ApplyInObject(
+        IConfigSecretProtector protector,
+        JsonObject parent,
+        string key,
+        JsonNode? stored
+    )
+    {
+        (bool remove, JsonNode? replacement) = Resolve(protector, parent[key], stored);
+        if (remove)
+        {
+            parent.Remove(key);
+        }
+        else if (replacement is not null)
+        {
+            parent[key] = replacement;
+        }
+    }
+
+    private static void ApplyInArray(
+        IConfigSecretProtector protector,
+        JsonArray parent,
+        int index,
+        JsonNode? stored
+    )
+    {
+        (bool remove, JsonNode? replacement) = Resolve(protector, parent[index], stored);
+        if (remove)
+        {
+            parent[index] = string.Empty;
+        }
+        else if (replacement is not null)
+        {
+            parent[index] = replacement;
+        }
+    }
+
+    private static (bool Remove, JsonNode? Replacement) Resolve(
+        IConfigSecretProtector protector,
+        JsonNode? incoming,
+        JsonNode? stored
+    )
+    {
+        string? value = AsString(incoming);
+
+        if (string.Equals(value, ConfigForgeSecret.StoredMarker, StringComparison.Ordinal))
+        {
+            string? current = AsString(stored);
+            return current is null ? (true, null) : (false, JsonValue.Create(current));
+        }
+
+        if (string.IsNullOrEmpty(value))
+        {
+            return (true, null);
+        }
+
+        return protector.IsProtected(value)
+            ? (false, null)
+            : (false, JsonValue.Create(protector.Protect(value)));
+    }
+
+    private static bool ShouldRedact(JsonNode? node) => !string.IsNullOrEmpty(AsString(node));
+
+    private static string? AsString(JsonNode? node) =>
+        node is JsonValue value && value.TryGetValue(out string? text) ? text : null;
 
     private static JsonObject Parse(string json) =>
         JsonNode.Parse(json) as JsonObject
