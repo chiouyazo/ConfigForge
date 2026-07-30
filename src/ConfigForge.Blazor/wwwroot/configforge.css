@@ -75,7 +75,7 @@ body {
     display: flex;
     flex-direction: column;
 }
-.cf-main { flex: 1; padding: 1.25rem 1.25rem 2.5rem; overflow-y: auto; min-height: 0; }
+.cf-main { flex: 1; padding: 1.25rem 1.25rem 5rem; overflow-y: auto; min-height: 0; }
 
 /* Sidebar navigation */
 .cf-sidebar-nav { display: flex; flex-direction: column; gap: 0.75rem; flex: 1; }
@@ -467,6 +467,11 @@ body {
     background: var(--cf-surface);
     border-top: 1px solid var(--cf-text-secondary);
     flex: 0 0 auto;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
 }
 .cf-save-actions { display: flex; gap: 0.5rem; }
 .cf-save-invalid { color: var(--cf-danger); }
@@ -537,9 +542,70 @@ body {
 }
 .cf-arrayobject-row-body, .cf-map-value { flex: 1; display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; }
 .cf-arrayobject-row-body .cf-field, .cf-map-value .cf-field { margin-bottom: 0; }
+.cf-section-heading {
+    margin: 0.5rem 0 0;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--cf-text-secondary);
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--cf-text-secondary);
+}
+.cf-section-heading:first-child { margin-top: 0; padding-top: 0; border-top: none; }
 .cf-map-key { flex: 0 0 12rem; align-self: flex-start; }
 .cf-arrayobject-remove, .cf-map-remove { flex: 0 0 auto; align-self: flex-start; }
 .cf-arrayobject-add, .cf-map-add { align-self: flex-start; }
+
+/* Master/detail map: entries on the left, the selected entry edited on the right. */
+.cf-map-md { display: flex; gap: 1rem; align-items: flex-start; }
+.cf-map-master {
+    flex: 0 0 14rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    border-right: 1px solid var(--cf-background);
+    padding-right: 0.75rem;
+}
+.cf-map-nav-item {
+    text-align: left;
+    padding: 0.4rem 0.6rem;
+    border: none;
+    border-radius: var(--cf-radius);
+    background: transparent;
+    color: var(--cf-text-primary);
+    cursor: pointer;
+    font-size: 0.9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: background var(--cf-transition, 0.15s), color var(--cf-transition, 0.15s);
+}
+.cf-map-nav-item:hover { background: var(--cf-background); }
+.cf-map-nav-active { background: var(--cf-primary); color: var(--cf-surface); }
+.cf-map-detail {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+/* Nullable object: an enable/disable toggle that nulls the whole section when off. */
+.cf-nullable-object { gap: 0.5rem; }
+.cf-nullable-object-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+.cf-nullable-object-toggle .cf-label { cursor: pointer; }
+.cf-nullable-object-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 0.6rem;
+    padding-left: 0.9rem;
+    border-left: 2px solid var(--cf-background);
+}
 
 .cf-oneof-select { max-width: 20rem; }
 .cf-oneof-body {

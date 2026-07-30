@@ -19,8 +19,16 @@
         int index = i;
         <div class="cf-arrayobject-row">
             <div class="cf-arrayobject-row-body">
+                @{
+                    string? previousSection = null;
+                }
                 @foreach (FieldDefinition child in Field.Children)
                 {
+                    if (!string.IsNullOrEmpty(child.Section) && child.Section != previousSection)
+                    {
+                        <h4 class="cf-section-heading">@child.Section</h4>
+                    }
+                    previousSection = child.Section;
                     <FieldRenderer Field="RebaseChild(child, index)" Disabled="Disabled" />
                 }
             </div>

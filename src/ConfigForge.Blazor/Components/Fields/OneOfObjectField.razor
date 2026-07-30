@@ -83,6 +83,36 @@
 
     private string? _activeSection;
 
+    protected override void OnParametersSet()
+    {
+        // A freshly added entry has no discriminator yet, so the dropdown only *shows* the first
+        // variant without it being stored. Persist that default so the value is always a valid
+        // variant (otherwise saving fails: "must specify a type discriminator").
+        if (Disabled || Field.DiscriminatorKey is null)
+        {
+            return;
+        }
+
+        IDictionary<string, object?>? current =
+            Session.Document[Field.Key] as IDictionary<string, object?>;
+        bool hasDiscriminator =
+            current is not null
+            && current.TryGetValue(Field.DiscriminatorKey, out object? raw)
+            && raw is string existing
+            && existing.Length > 0;
+        if (hasDiscriminator || Field.OneOfVariants.Count == 0)
+        {
+            return;
+        }
+
+        Dictionary<string, object?> obj =
+            current is not null
+                ? new Dictionary<string, object?>(current, StringComparer.Ordinal)
+                : new Dictionary<string, object?>(StringComparer.Ordinal);
+        obj[Field.DiscriminatorKey] = Field.OneOfVariants[0].DiscriminatorValue;
+        Session.SetFieldValue(Field.Key, obj);
+    }
+
     private static List<string> Sections(OneOfVariant? variant) =>
         variant is null
             ? []

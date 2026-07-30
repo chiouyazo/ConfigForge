@@ -135,6 +135,21 @@ options.SecretTypeNames.Add("ProtectedValue");   // your encrypted/hashed wrappe
 
 The set is empty by default, so ConfigForge stays free of any specific library's type names.
 
+### External types: `[CfMember]`
+
+You cannot put attributes on a type you don't own (a type from a referenced library). `[CfMember]` is an **assembly-level** attribute that attaches the same hints as `[CfOptions]` to a property of such a type, matched by target type and property name:
+
+```csharp
+[assembly: CfMember(typeof(LogConfiguration), nameof(LogConfiguration.Level),
+    Label = "Log Level", Group = "Logging", Order = 1)]
+[assembly: CfMember(typeof(LogConfiguration), nameof(LogConfiguration.InternalToken),
+    Ignore = true)]
+```
+
+Precedence is `inline attribute` → `inline [CfOptions]` → `[CfMember]` → framework default, so an inline attribute on a property you *do* own always wins; `[CfMember]` only fills in what could not be declared inline. It matches on the property's reflected type first and then its declaring type, so hints on an inherited base property still resolve.
+
+Generation scans the assembly of the root type passed to the generator, plus any assemblies added to `SchemaGenerationOptions.MetadataAssemblies`.
+
 ## Layout: groups, tabs, sections
 
 The navigation has up to three levels:

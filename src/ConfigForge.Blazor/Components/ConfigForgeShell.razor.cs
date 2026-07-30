@@ -345,8 +345,18 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
 
     private async Task SaveAsync()
     {
-        await OnSave.InvokeAsync(Session.Document).ConfigureAwait(false);
-        Session.AcceptAsSaved();
+        try
+        {
+            await OnSave.InvokeAsync(Session.Document).ConfigureAwait(false);
+            Session.AcceptAsSaved();
+            Session.EnqueueToast("Configuration saved.", ToastSeverity.Success);
+        }
+#pragma warning disable CA1031 // The host save handler is untrusted; surface any failure instead of tearing down the circuit.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            Session.EnqueueToast($"Save failed: {ex.Message}", ToastSeverity.Danger);
+        }
     }
 
     private void Discard()

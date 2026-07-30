@@ -28,6 +28,8 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
         ArgumentNullException.ThrowIfNull(rootType);
         ArgumentNullException.ThrowIfNull(options);
 
+        options.ExternalMembers = BuildExternalMembers(rootType, options);
+
         HashSet<Type> visited = [];
         JsonObject schema = BuildObjectSchema(rootType, options, visited, depth: 0);
 
@@ -324,9 +326,9 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
             schema = BuildTypeSchema(property.PropertyType, options, visited, depth);
         }
 
-        schema["title"] = ResolveTitle(property);
+        schema["title"] = ResolveTitle(property, options);
 
-        string? description = ResolveDescription(property);
+        string? description = ResolveDescription(property, options);
         if (description is not null)
         {
             schema["description"] = description;
@@ -336,47 +338,62 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
         {
             schema["x-control"] = controlOverride;
         }
+        else if (IsNullableObject(property, schema))
+        {
+            // A nullable object renders as a section with an enable/disable toggle: disabling it
+            // sets the value to null so an optional block (e.g. alerting) can be turned off entirely.
+            schema["x-control"] = "nullable-object";
+        }
 
         CfOptionsAttribute? options2 = Options(property);
+        CfMemberAttribute? member = Member(property, options);
         ApplyStringHint(
             schema,
             "x-tooltip",
-            property.GetCustomAttribute<CfTooltipAttribute>()?.Tooltip ?? options2?.Tooltip
+            property.GetCustomAttribute<CfTooltipAttribute>()?.Tooltip
+                ?? options2?.Tooltip
+                ?? member?.Tooltip
         );
         ApplyStringHint(
             schema,
             "x-placeholder",
             property.GetCustomAttribute<CfPlaceholderAttribute>()?.Placeholder
                 ?? options2?.Placeholder
+                ?? member?.Placeholder
         );
         ApplyStringHint(
             schema,
             "x-unit",
-            property.GetCustomAttribute<CfUnitAttribute>()?.Unit ?? options2?.Unit
+            property.GetCustomAttribute<CfUnitAttribute>()?.Unit ?? options2?.Unit ?? member?.Unit
         );
         // Inline so composite controls (oneof variants) can tab-group their children.
         ApplyStringHint(
             schema,
             "x-section",
-            property.GetCustomAttribute<CfSectionAttribute>()?.Section ?? options2?.Section
+            property.GetCustomAttribute<CfSectionAttribute>()?.Section
+                ?? options2?.Section
+                ?? member?.Section
         );
         // Inline so the layout pass can lay rows out horizontally at any nesting depth.
         ApplyStringHint(schema, "x-row", property.GetCustomAttribute<CfRowAttribute>()?.Row);
         ApplyStringHint(
             schema,
             "x-loader",
-            property.GetCustomAttribute<CfLoaderAttribute>()?.LoaderId ?? options2?.Loader
+            property.GetCustomAttribute<CfLoaderAttribute>()?.LoaderId
+                ?? options2?.Loader
+                ?? member?.Loader
         );
 
         if (
             property.GetCustomAttribute<CfUntrackedAttribute>() is not null
             || options2?.Tracked == false
+            || member?.Tracked == false
         )
         {
             schema["x-tracked"] = false;
         }
 
-        if (options2?.ReadOnly == true)
+        if (options2?.ReadOnly == true || member?.ReadOnly == true)
         {
             schema["readOnly"] = true;
         }
@@ -398,6 +415,54 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
     /// <summary>The consolidated <c>[CfOptions]</c> on a property, if present.</summary>
     private static CfOptionsAttribute? Options(PropertyInfo property) =>
         property.GetCustomAttribute<CfOptionsAttribute>();
+
+    /// <summary>
+    /// The assembly-level <c>[CfMember]</c> targeting this property, if any. Matched on the
+    /// reflected type first (the type actually used in the config graph) and then the declaring
+    /// type (so hints on an inherited base property still resolve).
+    /// </summary>
+    private static CfMemberAttribute? Member(PropertyInfo property, SchemaGenerationOptions options)
+    {
+        if (
+            property.ReflectedType is { } reflected
+            && options.ExternalMembers.TryGetValue((reflected, property.Name), out var byReflected)
+        )
+        {
+            return byReflected;
+        }
+
+        return
+            property.DeclaringType is { } declaring
+            && options.ExternalMembers.TryGetValue((declaring, property.Name), out var byDeclaring)
+            ? byDeclaring
+            : null;
+    }
+
+    /// <summary>
+    /// Collects assembly-level <c>[CfMember]</c> declarations from the root type's assembly and
+    /// any <see cref="SchemaGenerationOptions.MetadataAssemblies"/>, keyed by (type, property).
+    /// On duplicate keys the last-scanned declaration wins.
+    /// </summary>
+    private static Dictionary<(Type, string), CfMemberAttribute> BuildExternalMembers(
+        Type rootType,
+        SchemaGenerationOptions options
+    )
+    {
+        Dictionary<(Type, string), CfMemberAttribute> map = [];
+        foreach (
+            Assembly assembly in new[] { rootType.Assembly }
+                .Concat(options.MetadataAssemblies)
+                .Distinct()
+        )
+        {
+            foreach (CfMemberAttribute member in assembly.GetCustomAttributes<CfMemberAttribute>())
+            {
+                map[(member.TargetType, member.PropertyName)] = member;
+            }
+        }
+
+        return map;
+    }
 
     /// <summary>Emits <c>x-cf.categories[label]</c> icon/description from <c>[CfCategoryMeta]</c>.</summary>
     private static void EmitCategoryMeta(Type rootType, JsonObject xcf)
@@ -509,7 +574,50 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
         }
 
         return property.GetCustomAttribute<CfControlAttribute>()?.ControlType
-            ?? Options(property)?.Control;
+            ?? Options(property)?.Control
+            ?? Member(property, options)?.Control;
+    }
+
+    private static readonly NullabilityInfoContext NullabilityContext = new();
+
+    /// <summary>
+    /// True when a property is a nullable plain object (not a scalar, collection, map, oneof or
+    /// freeform), so it can be rendered with an enable/disable toggle backed by null.
+    /// </summary>
+    private static bool IsNullableObject(PropertyInfo property, JsonObject schema)
+    {
+        bool isPlainObject =
+            string.Equals(
+                (schema["type"] as JsonValue)?.GetValue<string>(),
+                "object",
+                StringComparison.Ordinal
+            )
+            && schema["properties"] is JsonObject
+            && schema["additionalProperties"] is null
+            && schema["oneOf"] is null;
+        return isPlainObject && IsNullable(property);
+    }
+
+    private static bool IsNullable(PropertyInfo property)
+    {
+        if (Nullable.GetUnderlyingType(property.PropertyType) is not null)
+        {
+            return true;
+        }
+
+        if (property.PropertyType.IsValueType)
+        {
+            return false;
+        }
+
+        try
+        {
+            return NullabilityContext.Create(property).ReadState == NullabilityState.Nullable;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
     }
 
     private static bool IsSecret(PropertyInfo property, SchemaGenerationOptions options)
@@ -517,6 +625,7 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
         if (
             property.GetCustomAttribute<CfSecretAttribute>() is not null
             || Options(property)?.Secret == true
+            || Member(property, options)?.Secret == true
         )
         {
             return true;
@@ -575,6 +684,7 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
             int order =
                 property.GetCustomAttribute<CfOrderAttribute>()?.Order
                 ?? Options(property)?.Order
+                ?? Member(property, options)?.Order
                 ?? int.MaxValue;
             selected.Add((property, order, property.MetadataToken));
         }
@@ -593,6 +703,7 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
             property.GetCustomAttribute<CfIgnoreAttribute>() is not null
             || IsJsonIgnored(property)
             || Options(property)?.Ignore == true
+            || Member(property, options)?.Ignore == true
         )
         {
             return false;
@@ -636,19 +747,24 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
         return explicitName ?? options.PropertyNamingPolicy.ConvertName(property.Name);
     }
 
-    private static string ResolveTitle(PropertyInfo property)
+    private static string ResolveTitle(PropertyInfo property, SchemaGenerationOptions options)
     {
         string? label =
             property.GetCustomAttribute<CfLabelAttribute>()?.Label
             ?? Options(property)?.Label
+            ?? Member(property, options)?.Label
             ?? property.GetCustomAttribute<DisplayAttribute>()?.GetName();
         return label ?? Humanize(property.Name);
     }
 
-    private static string? ResolveDescription(PropertyInfo property)
+    private static string? ResolveDescription(
+        PropertyInfo property,
+        SchemaGenerationOptions options
+    )
     {
         return property.GetCustomAttribute<CfDescriptionAttribute>()?.Description
             ?? Options(property)?.Description
+            ?? Member(property, options)?.Description
             ?? property.GetCustomAttribute<DescriptionAttribute>()?.Description
             ?? property.GetCustomAttribute<DisplayAttribute>()?.GetDescription();
     }
@@ -814,8 +930,12 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
             .. GetSerializableProperties(rootType, options)
                 .Select(p => new CategoryMember(
                     ResolvePropertyName(p, options),
-                    p.GetCustomAttribute<CfGroupAttribute>()?.Group ?? Options(p)?.Group,
-                    p.GetCustomAttribute<CfCategoryAttribute>()?.Category ?? Options(p)?.Category
+                    p.GetCustomAttribute<CfGroupAttribute>()?.Group
+                        ?? Options(p)?.Group
+                        ?? Member(p, options)?.Group,
+                    p.GetCustomAttribute<CfCategoryAttribute>()?.Category
+                        ?? Options(p)?.Category
+                        ?? Member(p, options)?.Category
                 )),
         ];
 

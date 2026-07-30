@@ -307,6 +307,10 @@ public sealed partial class JsonFormsSchemaParser : IJsonFormsSchemaParser
         {
             (discriminatorKey, oneOfVariants) = BuildOneOfVariants(variantNodes, rootSchema);
         }
+        else if (string.Equals(controlType, "nullable-object", StringComparison.Ordinal))
+        {
+            children = BuildObjectFields(propSchema, rootSchema, [], string.Empty);
+        }
 
         return new FieldDefinition
         {

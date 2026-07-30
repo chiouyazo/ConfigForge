@@ -1,5 +1,7 @@
+using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using ConfigForge.Abstractions.Annotations;
 
 namespace ConfigForge.Core.Schema.Generation;
 
@@ -51,4 +53,22 @@ public sealed class SchemaGenerationOptions
     /// generated value. Use it to hand-tune anything the reflection pass cannot infer.
     /// </summary>
     public JsonNode? Overlay { get; set; }
+
+    /// <summary>
+    /// Extra assemblies scanned for assembly-level <see cref="CfMemberAttribute"/> declarations,
+    /// in addition to the root type's own assembly (which is always scanned). Lets metadata for
+    /// external types live in an assembly other than the one that owns the root config type.
+    /// </summary>
+    public IList<Assembly> MetadataAssemblies { get; } = [];
+
+    /// <summary>
+    /// Lookup of external-property metadata declared via assembly-level
+    /// <see cref="CfMemberAttribute"/>, keyed by (type, property name). Populated by the
+    /// generator at the start of each run from the root type's assembly and
+    /// <see cref="MetadataAssemblies"/>.
+    /// </summary>
+    internal IReadOnlyDictionary<
+        (Type Type, string Property),
+        CfMemberAttribute
+    > ExternalMembers { get; set; } = new Dictionary<(Type, string), CfMemberAttribute>();
 }
