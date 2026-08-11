@@ -500,7 +500,8 @@ public sealed partial class JsonFormsSchemaParser : IJsonFormsSchemaParser
     /// and map values). Otherwise inference runs:
     /// boolean → checkbox; string with format date/date-time/time/color →
     /// the matching control; string with enum or a loaderId → select; array of
-    /// enum strings → checklist; array of strings → taglist; array of objects →
+    /// strings with enum or a loaderId → checklist; array of plain strings → taglist;
+    /// array of objects →
     /// arrayobject; integer/number → number, or slider when both minimum and maximum
     /// are present; object with additionalProperties → map; string → text;
     /// anything else → text.
@@ -524,7 +525,9 @@ public sealed partial class JsonFormsSchemaParser : IJsonFormsSchemaParser
 
         string? type = GetString(propSchema, "type");
         bool hasEnum = propSchema["enum"] is JsonArray;
-        bool hasLoader = !string.IsNullOrEmpty(GetString(control, "loaderId"));
+        bool hasLoader = !string.IsNullOrEmpty(
+            GetString(control, "loaderId") ?? GetString(propSchema, "x-loader")
+        );
 
         switch (type)
         {
@@ -570,7 +573,7 @@ public sealed partial class JsonFormsSchemaParser : IJsonFormsSchemaParser
                 if (items is not null)
                 {
                     bool itemIsString = GetString(items, "type") == "string";
-                    if (items["enum"] is JsonArray && itemIsString)
+                    if (itemIsString && (hasLoader || items["enum"] is JsonArray))
                     {
                         return "checklist";
                     }

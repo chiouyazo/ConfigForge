@@ -578,7 +578,12 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
             ?? Member(property, options)?.Control;
     }
 
-    private static readonly NullabilityInfoContext NullabilityContext = new();
+    // NullabilityInfoContext caches into a plain dictionary and is documented as not thread-safe, so
+    // a single shared instance corrupts itself when two schemas are generated at once. One context
+    // per thread keeps its caching benefit without a lock.
+    private static readonly ThreadLocal<NullabilityInfoContext> NullabilityContext = new(() =>
+        new NullabilityInfoContext()
+    );
 
     /// <summary>
     /// True when a property is a nullable plain object (not a scalar, collection, map, oneof or
@@ -612,7 +617,8 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
 
         try
         {
-            return NullabilityContext.Create(property).ReadState == NullabilityState.Nullable;
+            return NullabilityContext.Value!.Create(property).ReadState
+                == NullabilityState.Nullable;
         }
         catch (InvalidOperationException)
         {
