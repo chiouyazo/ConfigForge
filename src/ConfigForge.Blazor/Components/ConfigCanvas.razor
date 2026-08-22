@@ -33,9 +33,12 @@
             {
                 <p class="cf-category-description">@ActiveCategory.Description</p>
             }
-            @if (SelectedEntryField is { } entryField)
+            @if (SelectedEntryFields is { Count: > 0 } entryFields)
             {
-                <FieldRenderer Field="entryField" />
+                @foreach (FieldDefinition entryField in entryFields)
+                {
+                    <FieldRenderer Field="entryField" />
+                }
             }
             else
             {
@@ -96,23 +99,39 @@
 
     private IReadOnlyList<string> UnknownKeys => Session.ParseResult?.UnknownKeys ?? [];
 
-    // For a collection category, the value-template field rebased onto the selected entry's
-    // path (e.g. shops/{guid}). Null when nothing is selected or the map has no value template.
-    private FieldDefinition? SelectedEntryField
+    // For a collection category, the fields to render for the selected entry, rebased onto its
+    // path (e.g. shops/{guid}). A plain-object value template is expanded into its child fields
+    // (like the inline map control); any other template (oneof, scalar) is rendered as one field.
+    // Empty when nothing is selected or the map has no value template.
+    private IReadOnlyList<FieldDefinition> SelectedEntryFields
     {
         get
         {
             if (
-                ActiveCategory?.CollectionKey is { Length: > 0 } collectionKey
-                && Session.GetSelectedEntry(collectionKey) is { Length: > 0 } entryKey
-                && Schema.Fields.TryGetValue(collectionKey, out FieldDefinition? mapField)
-                && mapField.ValueField is { } template
+                ActiveCategory?.CollectionKey is not { Length: > 0 } collectionKey
+                || Session.GetSelectedEntry(collectionKey) is not { Length: > 0 } entryKey
+                || !Schema.Fields.TryGetValue(collectionKey, out FieldDefinition? mapField)
+                || mapField.ValueField is not { } template
             )
             {
-                return template.WithKey($"{collectionKey}/{entryKey}");
+                return [];
             }
 
-            return null;
+            string entryPath = $"{collectionKey}/{entryKey}";
+            if (
+                string.Equals(template.ControlType, "object", StringComparison.Ordinal)
+                && template.Children.Count > 0
+            )
+            {
+                return
+                [
+                    .. template.Children.Select(child =>
+                        child.WithKey($"{entryPath}/{child.Key}")
+                    ),
+                ];
+            }
+
+            return [template.WithKey(entryPath)];
         }
     }
 }

@@ -30,6 +30,12 @@ public sealed class CfEnableWhenAttribute : CfRuleAttribute
     public CfEnableWhenAttribute(string fieldPath, object equalsValue)
         : base(fieldPath, equalsValue) { }
 
+    /// <summary>Enables the field based on the watched field's presence (e.g. is-not-empty).</summary>
+    /// <param name="fieldPath">Slash path to the watched field.</param>
+    /// <param name="condition">The presence comparison (e.g. <see cref="CfCondition.IsNotEmpty"/>).</param>
+    public CfEnableWhenAttribute(string fieldPath, CfCondition condition)
+        : base(fieldPath, condition) { }
+
     /// <inheritdoc />
     public override string Effect => "ENABLE";
 }

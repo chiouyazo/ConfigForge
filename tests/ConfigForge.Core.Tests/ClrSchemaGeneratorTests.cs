@@ -548,6 +548,64 @@ public sealed class ClrSchemaGeneratorTests
         public FeatureBlock ExchangeLock { get; init; } = new();
     }
 
+    private sealed record OptionalBlock
+    {
+        public string? Note { get; init; }
+    }
+
+    private sealed record NullableObjectConfig
+    {
+        public OptionalBlock? Fallback { get; init; }
+
+        [CfSection("Chunks")]
+        public OptionalBlock? ChunkSizes { get; init; }
+    }
+
+    [Fact]
+    public void NullableObject_WithSection_RendersAsSectionNotToggle()
+    {
+        Assert.NotNull(new NullableObjectConfig());
+        Assert.NotNull(new OptionalBlock());
+        string json = new ClrSchemaGenerator().Generate<NullableObjectConfig>(
+            new SchemaGenerationOptions { Id = "no" }
+        );
+        JsonObject props = (JsonObject)JsonNode.Parse(json)!["schema"]!["properties"]!;
+
+        // Without [CfSection]: the optional block stays an on/off toggle.
+        Assert.Equal("nullable-object", props["fallback"]!["x-control"]!.GetValue<string>());
+
+        // With [CfSection]: no toggle; it is an always-present titled section instead.
+        Assert.Null(props["chunkSizes"]!["x-control"]);
+        Assert.Equal("Chunks", props["chunkSizes"]!["x-section"]!.GetValue<string>());
+    }
+
+    private sealed record RuleConfig
+    {
+        public string? ConnectionString { get; init; }
+
+        [CfEnableWhen("connectionString", CfCondition.IsNotEmpty)]
+        public bool LogToDatabase { get; init; }
+    }
+
+    [Fact]
+    public void CfEnableWhen_IsNotEmpty_EmitsPresenceCondition()
+    {
+        Assert.NotNull(new RuleConfig());
+        string json = new ClrSchemaGenerator().Generate<RuleConfig>(
+            new SchemaGenerationOptions { Id = "rule" }
+        );
+        JsonNode rule = JsonNode.Parse(json)!["schema"]!["properties"]!["logToDatabase"]![
+            "x-rule"
+        ]!;
+
+        Assert.Equal("ENABLE", rule["effect"]!.GetValue<string>());
+        // Condition is a presence check (not null, not empty string), not a plain equality.
+        JsonArray excluded = (JsonArray)rule["condition"]!["schema"]!["not"]!["enum"]!;
+        Assert.Equal(2, excluded.Count);
+        Assert.Contains(excluded, n => n is null);
+        Assert.Contains(excluded, n => n is not null && n.GetValue<string>().Length == 0);
+    }
+
     private sealed record RetryBlock
     {
         [CfRow("retry")]

@@ -334,19 +334,21 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
             schema["description"] = description;
         }
 
+        CfOptionsAttribute? options2 = Options(property);
+        CfMemberAttribute? member = Member(property, options);
+
         if (controlOverride is not null)
         {
             schema["x-control"] = controlOverride;
         }
-        else if (IsNullableObject(property, schema))
+        else if (IsNullableObject(property, schema) && ResolveSection(property, options) is null)
         {
             // A nullable object renders as a section with an enable/disable toggle: disabling it
             // sets the value to null so an optional block (e.g. alerting) can be turned off entirely.
+            // Giving the object a [CfSection] opts out of the toggle: it is then treated as an
+            // always-present titled section (e.g. chunk sizes), not an optional on/off block.
             schema["x-control"] = "nullable-object";
         }
-
-        CfOptionsAttribute? options2 = Options(property);
-        CfMemberAttribute? member = Member(property, options);
         ApplyStringHint(
             schema,
             "x-tooltip",
@@ -367,13 +369,7 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
             property.GetCustomAttribute<CfUnitAttribute>()?.Unit ?? options2?.Unit ?? member?.Unit
         );
         // Inline so composite controls (oneof variants) can tab-group their children.
-        ApplyStringHint(
-            schema,
-            "x-section",
-            property.GetCustomAttribute<CfSectionAttribute>()?.Section
-                ?? options2?.Section
-                ?? member?.Section
-        );
+        ApplyStringHint(schema, "x-section", ResolveSection(property, options));
         // Inline so the layout pass can lay rows out horizontally at any nesting depth.
         ApplyStringHint(schema, "x-row", property.GetCustomAttribute<CfRowAttribute>()?.Row);
         ApplyStringHint(
@@ -415,6 +411,15 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
     /// <summary>The consolidated <c>[CfOptions]</c> on a property, if present.</summary>
     private static CfOptionsAttribute? Options(PropertyInfo property) =>
         property.GetCustomAttribute<CfOptionsAttribute>();
+
+    /// <summary>
+    /// The resolved section for a property from any of its sources (<c>[CfSection]</c>,
+    /// <c>[CfOptions]</c>, or an assembly-level <c>[CfMember]</c>). Null when unsectioned.
+    /// </summary>
+    private static string? ResolveSection(PropertyInfo property, SchemaGenerationOptions options) =>
+        property.GetCustomAttribute<CfSectionAttribute>()?.Section
+        ?? Options(property)?.Section
+        ?? Member(property, options)?.Section;
 
     /// <summary>
     /// The assembly-level <c>[CfMember]</c> targeting this property, if any. Matched on the
@@ -544,11 +549,26 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
             ["condition"] = new JsonObject
             {
                 ["scope"] = ScopeFromPath(rule.FieldPath),
-                ["schema"] = new JsonObject
-                {
-                    ["const"] = JsonSerializer.SerializeToNode(rule.EqualsValue),
-                },
+                ["schema"] = RuleConditionSchema(rule),
             },
+        };
+
+    /// <summary>
+    /// The JSON Schema the watched value must satisfy for the rule to fire. Evaluated at runtime
+    /// by the full JSON Schema validator, so presence checks (is-set / is-not-empty) are expressed
+    /// as schema constraints rather than a plain equality.
+    /// </summary>
+    private static JsonObject RuleConditionSchema(CfRuleAttribute rule) =>
+        rule.Condition switch
+        {
+            // Present: not JSON null (a missing field resolves to null and fails this).
+            CfCondition.IsSet => new JsonObject { ["not"] = new JsonObject { ["type"] = "null" } },
+            // Present and not the empty string.
+            CfCondition.IsNotEmpty => new JsonObject
+            {
+                ["not"] = new JsonObject { ["enum"] = new JsonArray(null, "") },
+            },
+            _ => new JsonObject { ["const"] = JsonSerializer.SerializeToNode(rule.EqualsValue) },
         };
 
     /// <summary>Converts a slash path (<c>a/b</c>) to a JsonForms scope (<c>#/properties/a/properties/b</c>).</summary>

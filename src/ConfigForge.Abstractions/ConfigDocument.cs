@@ -97,7 +97,7 @@ public sealed class ConfigDocument
             return false;
         }
 
-        string leaf = segments[^1];
+        string leaf = segments[segments.Length - 1];
         return parent switch
         {
             IDictionary<string, object?> dict => dict.Remove(leaf),
@@ -209,7 +209,7 @@ public sealed class ConfigDocument
             node = NextContainer(node, segments[i]);
         }
 
-        SetLeaf(node, segments[^1], value);
+        SetLeaf(node, segments[segments.Length - 1], value);
     }
 
     private static object NextContainer(object? node, string segment)

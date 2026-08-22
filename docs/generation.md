@@ -81,8 +81,8 @@ All of these live in `ConfigForge.Abstractions.Annotations`. They only annotate;
 | `[CfCategory("…")]` | Tab within a group (or a top-level tab if no groups). |
 | `[CfSection("…")]` | A titled box (or a tab inside a `oneof` variant) grouping fields within a tab. |
 | `[CfReadOnly]` *(via `[CfOptions]`)* | Render read-only (schema `readOnly`): shown but not editable. |
-| `[CfEnableWhen("path", value)]` | Enable this field only while another field equals `value` (default `true`). |
-| `[CfVisibleWhen("path", value)]` | Show this field only while another field equals `value`. |
+| `[CfEnableWhen("path", value)]` | Enable this field only while another field equals `value` (default `true`). Presence form: `[CfEnableWhen("path", CfCondition.IsNotEmpty)]` (also `IsSet`) enables while the watched field is set / non-empty, not just on equality. |
+| `[CfVisibleWhen("path", value)]` | Show this field only while another field equals `value`. Same `CfCondition.IsSet`/`IsNotEmpty` presence form as above. |
 | `[CfCategoryMeta("cat", Icon=…, Description=…)]` | **On the type.** Icon/description for a category. Repeatable. |
 | `[CfAction("id", Label=…, Category=…, Icon=…)]` | **On the type.** Declares an action button; the handler is registered in code with the same id. Repeatable. |
 | `[CfRow("id")]` | Lay adjacent fields sharing the id side by side (a `HorizontalLayout`) instead of stacked. |
@@ -191,6 +191,8 @@ public sealed record ExchangeLock
 ```
 
 Inside a `oneof` variant, `[CfSection]` on the variant's properties turns into tabs within that entry — useful for a polymorphic type with many fields.
+
+**Optional (nullable) objects.** A nullable object property (`Alerting? Alerts`) renders by default as an enable/disable toggle, so the whole block can be turned off (its value becomes null). If instead the object is always meant to be present and you just want it boxed, give it a `[CfSection]`: that opts out of the toggle and renders it as an always-present titled section. So `Chunking? ChunkSizes` with `[CfSection("Chunking")]` is a section, while `CustomerGroup? Fallback` without one stays an optional toggle.
 
 ## Polymorphism → oneof
 

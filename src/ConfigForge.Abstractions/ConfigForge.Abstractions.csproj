@@ -1,6 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.1;net10.0</TargetFrameworks>
+    <!--
+      netstandard2.0 is carried so .NET Framework hosts can annotate their configuration model with
+      the [Cf*] attributes directly. Only these contracts have to reach them; the schema generator
+      and the Blazor UI stay net10.0.
+    -->
+    <TargetFrameworks>netstandard2.0;netstandard2.1;net10.0</TargetFrameworks>
 
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).xml</DocumentationFile>

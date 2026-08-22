@@ -12,7 +12,12 @@
                 value="@(HasMatchingOption ? CurrentString : string.Empty)"
                 disabled="@(Disabled || Control.ReadOnly)"
                 @onchange="OnInputAsync">
-            <option value="" selected="@(!HasMatchingOption)">@PlaceholderText</option>
+            @* The empty placeholder is only a "nothing selected yet" hint: once a valid value is
+               chosen (e.g. an enum with a default), drop it so it is not offered as clutter. *@
+            @if (!HasMatchingOption)
+            {
+                <option value="" selected>@PlaceholderText</option>
+            }
             @foreach (SelectOption option in Options)
             {
                 <option value="@option.Value" selected="@(option.Value == CurrentString)">@option.Label</option>

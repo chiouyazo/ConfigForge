@@ -119,7 +119,75 @@ public sealed class ConfigForgeShellTests : BunitContext
         Assert.DoesNotContain("cf-modal-backdrop", cut.Markup, StringComparison.Ordinal);
         var nameInputs = cut.FindAll("input.cf-input[value=\"Freshly Added\"]");
         Assert.NotEmpty(nameInputs);
+
+        // Regression: the collection is x-key-format=uuid, so the entry key must be a generated
+        // GUID, not a sequential "keyN" (which produced "'key1' is not a valid shop id").
+        EditingSession session = Services.GetRequiredService<EditingSession>();
+        IDictionary<string, object?> shops = Assert.IsAssignableFrom<IDictionary<string, object?>>(
+            session.Document["shops"]
+        );
+        string entryKey = Assert.Single(shops.Keys);
+        Assert.True(Guid.TryParse(entryKey, out _), $"expected a GUID key, got '{entryKey}'");
     }
+
+    [Fact]
+    public void ConfigForgeShell_CollectionWithPlainObjectValue_RendersEntryFields()
+    {
+        IJsonFormsSchemaParser parser = Services.GetRequiredService<IJsonFormsSchemaParser>();
+        ConfigSchema schema = parser.Parse(ObjectCollectionSchema);
+
+        var document = new ConfigDocument();
+        document["schedules"] = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["22222222-2222-2222-2222-222222222222"] = new Dictionary<string, object?>(
+                StringComparer.Ordinal
+            )
+            {
+                ["label"] = "Nightly",
+            },
+        };
+
+        IRenderedComponent<ConfigForgeShell> cut = Render<ConfigForgeShell>(parameters =>
+            parameters.Add(p => p.Schema, schema).Add(p => p.Document, document)
+        );
+
+        // Selecting the entry must expand the plain-object value into its child fields, not render
+        // the whole object raw ("Unsupported control type 'object'").
+        cut.Find(".cf-collection-select").Click();
+        Assert.DoesNotContain("Unsupported control type", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Interval (s)", cut.Markup, StringComparison.Ordinal);
+    }
+
+    private const string ObjectCollectionSchema = """
+        {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "schedules": {
+                "type": "object",
+                "x-key-format": "uuid",
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "label": { "type": "string", "title": "Label" },
+                    "intervalSeconds": { "type": "integer", "title": "Interval (s)" }
+                  }
+                }
+              }
+            }
+          },
+          "uiSchema": {
+            "type": "Categorization",
+            "elements": [
+              { "type": "Category", "label": "Schedules", "elements": [ { "type": "Control", "scope": "#/properties/schedules" } ] }
+            ]
+          },
+          "x-cf": {
+            "id": "objcoll", "name": "ObjColl",
+            "categories": { "Schedules": { "collection": "schedules", "collectionLabel": "label", "collectionAddLabel": "Add schedule" } }
+          }
+        }
+        """;
 
     [Fact]
     public void ConfigForgeShell_RemoveCollectionEntry_RequiresConfirmThenRemoves()

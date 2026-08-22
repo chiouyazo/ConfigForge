@@ -18,13 +18,27 @@ public abstract class CfRuleAttribute : Attribute
     {
         FieldPath = fieldPath;
         EqualsValue = equalsValue;
+        Condition = CfCondition.Equals;
+    }
+
+    /// <summary>Creates a rule keyed off another field's presence (not an equality check).</summary>
+    /// <param name="fieldPath">Slash path to the watched field.</param>
+    /// <param name="condition">The presence comparison to apply.</param>
+    protected CfRuleAttribute(string fieldPath, CfCondition condition)
+    {
+        FieldPath = fieldPath;
+        EqualsValue = null;
+        Condition = condition;
     }
 
     /// <summary>The watched field's slash path.</summary>
     public string FieldPath { get; }
 
-    /// <summary>The value the watched field must equal.</summary>
+    /// <summary>The value the watched field must equal (only when <see cref="Condition"/> is <see cref="CfCondition.Equals"/>).</summary>
     public object? EqualsValue { get; }
+
+    /// <summary>How the watched value is compared.</summary>
+    public CfCondition Condition { get; }
 
     /// <summary>The JsonForms effect (<c>ENABLE</c> / <c>SHOW</c>) when the condition matches.</summary>
     public abstract string Effect { get; }

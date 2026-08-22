@@ -261,7 +261,13 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
             value[labelKey] = _addEntryName.Trim();
         }
 
-        bool keyless = string.Equals(valueField?.KeyFormat, "uuid", StringComparison.Ordinal);
+        // KeyFormat lives on the map field itself, not on the entry-value template. Reading it
+        // off the value template here always yielded null, so uuid-keyed collections (shops,
+        // schedules) wrongly got sequential "keyN" keys instead of a GUID.
+        string? keyFormat = Schema.Fields.TryGetValue(collectionKey, out FieldDefinition? mapField)
+            ? mapField.KeyFormat
+            : null;
+        bool keyless = string.Equals(keyFormat, "uuid", StringComparison.Ordinal);
         string entryKey = Session.AddMapEntry(collectionKey, keyless, value);
         Session.SetActiveCategory(_addEntryCategoryIndex);
         Session.SetSelectedEntry(collectionKey, entryKey);

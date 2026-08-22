@@ -56,7 +56,12 @@ public static class ConfigForgeSecret
         return value is not null
             && value.StartsWith(IndexPrefix, StringComparison.Ordinal)
             && int.TryParse(
+#if NETSTANDARD2_0
+                // netstandard2.0 has no span overload of TryParse.
+                value.Substring(IndexPrefix.Length),
+#else
                 value.AsSpan(IndexPrefix.Length),
+#endif
                 NumberStyles.Integer,
                 CultureInfo.InvariantCulture,
                 out index

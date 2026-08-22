@@ -27,6 +27,12 @@ public sealed class CfVisibleWhenAttribute : CfRuleAttribute
     public CfVisibleWhenAttribute(string fieldPath, object equalsValue)
         : base(fieldPath, equalsValue) { }
 
+    /// <summary>Shows the field based on the watched field's presence (e.g. is-not-empty).</summary>
+    /// <param name="fieldPath">Slash path to the watched field.</param>
+    /// <param name="condition">The presence comparison (e.g. <see cref="CfCondition.IsNotEmpty"/>).</param>
+    public CfVisibleWhenAttribute(string fieldPath, CfCondition condition)
+        : base(fieldPath, condition) { }
+
     /// <inheritdoc />
     public override string Effect => "SHOW";
 }
