@@ -426,6 +426,14 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
             schema["readOnly"] = true;
         }
 
+        if (
+            property.GetCustomAttribute<CfHiddenAttribute>() is not null
+            || options2?.Hidden == true
+        )
+        {
+            schema["x-hidden"] = true;
+        }
+
         List<CfRuleAttribute> rules = [.. property.GetCustomAttributes<CfRuleAttribute>()];
         if (rules.Count == 1)
         {
@@ -575,6 +583,11 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
                 ["variant"] = action.Variant,
                 ["placement"] = placement,
             };
+            if (action.RequiresEntry)
+            {
+                entry["requiresEntry"] = true;
+            }
+
             if (action.Label is not null)
             {
                 entry["label"] = action.Label;

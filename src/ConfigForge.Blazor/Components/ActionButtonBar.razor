@@ -60,11 +60,16 @@
             return [];
         }
 
-        string? activeLabel =
+        CategoryElement? activeCategory =
             schema.Categories.Count > Session.ActiveCategoryIndex
             && Session.ActiveCategoryIndex >= 0
-                ? schema.Categories[Session.ActiveCategoryIndex].Label
+                ? schema.Categories[Session.ActiveCategoryIndex]
                 : null;
+        string? activeLabel = activeCategory?.Label;
+
+        bool hasSelectedEntry =
+            activeCategory?.CollectionKey is { Length: > 0 } collectionKey
+            && !string.IsNullOrEmpty(Session.GetSelectedEntry(collectionKey));
 
         List<ActionDefinition> matches = [];
         foreach (ActionDefinition action in schema.Actions)
@@ -75,7 +80,7 @@
                 && string.Equals(action.Category, activeLabel, StringComparison.Ordinal);
             bool positionMatch = string.Equals(action.Position, position, StringComparison.OrdinalIgnoreCase);
 
-            if ((global || inCategory) && positionMatch)
+            if ((global || inCategory) && positionMatch && (!action.RequiresEntry || hasSelectedEntry))
             {
                 matches.Add(action);
             }

@@ -25,4 +25,11 @@ public sealed class ActionDefinition
 
     /// <summary>Placement within the category: <c>top</c> or <c>bottom</c>.</summary>
     public string Position { get; init; } = "bottom";
+
+    /// <summary>
+    /// When true, the button only appears while an entry of the active collection category is
+    /// selected, and its handler runs for that entry (e.g. a per-shop "test connection"). Without
+    /// it, a collection-category action would show with no entry chosen and have nothing to act on.
+    /// </summary>
+    public bool RequiresEntry { get; init; }
 }

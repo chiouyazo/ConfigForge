@@ -67,6 +67,12 @@ public sealed class CfOptionsAttribute : Attribute
     /// <summary>Renders the field read-only (schema <c>readOnly</c>): shown but not editable.</summary>
     public bool ReadOnly { get; init; }
 
+    /// <summary>
+    /// Never renders the field (see <c>[CfHidden]</c>). The value still lives in the document and
+    /// is readable by actions and rules, so it can hold pure UI state that must not appear in the form.
+    /// </summary>
+    public bool Hidden { get; init; }
+
     /// <summary>Excludes the property from the schema entirely (see <c>[CfIgnore]</c>).</summary>
     public bool Ignore { get; init; }
 }

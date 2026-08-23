@@ -48,6 +48,11 @@ public sealed partial class FieldRenderer : ComponentBase, IDisposable
     /// </summary>
     private (bool Visible, bool Disabled) ResolveState()
     {
+        if (Field.Hidden)
+        {
+            return (false, true);
+        }
+
         (bool visible, bool ruleEnabled) = RuleEvaluation.Resolve(
             Field.Rules,
             RuleEvaluator,

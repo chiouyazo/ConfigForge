@@ -4,6 +4,7 @@ using ConfigForge.Blazor.Components;
 using ConfigForge.Blazor.Services;
 using ConfigForge.Core;
 using ConfigForge.Core.Schema;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -325,6 +326,187 @@ public sealed class ConfigForgeShellTests : BunitContext
           "x-cf": {
             "id": "secrule", "name": "SecRule",
             "categories": { "Shops": { "collection": "shops", "collectionLabel": "url", "collectionAddLabel": "Add shop" } }
+          }
+        }
+        """;
+
+    [Fact]
+    public void ConfigForgeShell_HiddenField_IsNotRendered()
+    {
+        IJsonFormsSchemaParser parser = Services.GetRequiredService<IJsonFormsSchemaParser>();
+        ConfigSchema schema = parser.Parse(HiddenFieldSchema);
+
+        IRenderedComponent<ConfigForgeShell> cut = Render<ConfigForgeShell>(parameters =>
+            parameters.Add(p => p.Schema, schema)
+        );
+
+        Assert.Contains("Visible Field", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Secret State", cut.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ConfigForgeShell_ClickingCollectionCategory_SelectsFirstEntry()
+    {
+        IJsonFormsSchemaParser parser = Services.GetRequiredService<IJsonFormsSchemaParser>();
+        ConfigSchema schema = parser.Parse(CollectionSchema);
+
+        var document = new ConfigDocument();
+        document["shops"] = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["66666666-6666-6666-6666-666666666666"] = new Dictionary<string, object?>(
+                StringComparer.Ordinal
+            )
+            {
+                ["type"] = "shopware6",
+                ["name"] = "My First Shop",
+            },
+        };
+
+        IRenderedComponent<ConfigForgeShell> cut = Render<ConfigForgeShell>(parameters =>
+            parameters.Add(p => p.Schema, schema).Add(p => p.Document, document)
+        );
+
+        // Nothing selected yet: the collection category is just the placeholder dead end.
+        Assert.Contains("Select an entry", cut.Markup, StringComparison.Ordinal);
+
+        // Clicking the category header selects the first entry so the click lands on a real form.
+        cut.Find("button.cf-category-item").Click();
+        Assert.DoesNotContain("Select an entry", cut.Markup, StringComparison.Ordinal);
+        Assert.NotEmpty(cut.FindAll("input.cf-input[value=\"My First Shop\"]"));
+    }
+
+    [Fact]
+    public void ConfigForgeShell_RequiresEntryAction_HiddenUntilEntrySelected()
+    {
+        IJsonFormsSchemaParser parser = Services.GetRequiredService<IJsonFormsSchemaParser>();
+        ConfigSchema schema = parser.Parse(RequiresEntryActionSchema);
+
+        var document = new ConfigDocument();
+        document["shops"] = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["77777777-7777-7777-7777-777777777777"] = new Dictionary<string, object?>(
+                StringComparer.Ordinal
+            )
+            {
+                ["type"] = "shopware6",
+                ["name"] = "Shop A",
+            },
+        };
+
+        IRenderedComponent<ConfigForgeShell> cut = Render<ConfigForgeShell>(parameters =>
+            parameters.Add(p => p.Schema, schema).Add(p => p.Document, document)
+        );
+
+        // No entry selected yet → the per-entry "Test connection" action is not shown.
+        Assert.DoesNotContain("Test connection", cut.Markup, StringComparison.Ordinal);
+
+        cut.Find(".cf-collection-select").Click();
+        Assert.Contains("Test connection", cut.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ConfigForgeShell_SaveWithMissingRequiredInEntry_IsBlocked()
+    {
+        IJsonFormsSchemaParser parser = Services.GetRequiredService<IJsonFormsSchemaParser>();
+        ConfigSchema schema = parser.Parse(RequiredEntrySchema);
+
+        bool saved = false;
+        IRenderedComponent<ConfigForgeShell> cut = Render<ConfigForgeShell>(parameters =>
+            parameters
+                .Add(p => p.Schema, schema)
+                .Add(
+                    p => p.OnSave,
+                    EventCallback.Factory.Create<ConfigDocument>(this, () => saved = true)
+                )
+        );
+
+        // Add a shop but leave the required syncChannels empty, then try to save.
+        cut.Find(".cf-collection-add").Click();
+        cut.Find(".cf-modal .cf-button-primary").Click();
+        cut.Find(".cf-save-bar .cf-button-primary").Click();
+
+        // The save is blocked (the invalid document never reaches the consumer) and the required
+        // field is surfaced instead of a raw deserialization crash downstream.
+        Assert.False(saved);
+        Assert.Contains("This field is required", cut.Markup, StringComparison.Ordinal);
+    }
+
+    private const string HiddenFieldSchema = """
+        {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "visibleField": { "type": "string", "title": "Visible Field" },
+              "secretState": { "type": "string", "title": "Secret State", "x-hidden": true }
+            }
+          },
+          "x-cf": { "id": "hidden", "name": "Hidden" }
+        }
+        """;
+
+    private const string RequiresEntryActionSchema = """
+        {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "shops": {
+                "type": "object",
+                "x-key-format": "uuid",
+                "additionalProperties": {
+                  "oneOf": [
+                    { "type": "object", "properties": {
+                      "type": { "type": "string", "const": "shopware6" },
+                      "name": { "type": "string", "title": "Name" }
+                    } }
+                  ]
+                }
+              }
+            }
+          },
+          "uiSchema": {
+            "type": "Categorization",
+            "elements": [
+              { "type": "Category", "label": "Shops", "elements": [ { "type": "Control", "scope": "#/properties/shops" } ] }
+            ]
+          },
+          "x-cf": {
+            "id": "reqentry", "name": "ReqEntry",
+            "categories": { "Shops": { "collection": "shops", "collectionLabel": "name", "collectionAddLabel": "Add shop" } },
+            "actions": [
+              { "actionId": "shop.test", "label": "Test connection", "requiresEntry": true, "placement": { "category": "Shops" } }
+            ]
+          }
+        }
+        """;
+
+    private const string RequiredEntrySchema = """
+        {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "shops": {
+                "type": "object",
+                "x-key-format": "uuid",
+                "additionalProperties": {
+                  "oneOf": [
+                    { "type": "object", "required": ["syncChannels"], "properties": {
+                      "type": { "type": "string", "const": "shopware6" },
+                      "syncChannels": { "type": "array", "items": { "type": "string" }, "title": "Sync channels" }
+                    } }
+                  ]
+                }
+              }
+            }
+          },
+          "uiSchema": {
+            "type": "Categorization",
+            "elements": [
+              { "type": "Category", "label": "Shops", "elements": [ { "type": "Control", "scope": "#/properties/shops" } ] }
+            ]
+          },
+          "x-cf": {
+            "id": "reqsave", "name": "ReqSave",
+            "categories": { "Shops": { "collection": "shops", "collectionLabel": "syncChannels", "collectionAddLabel": "Add shop" } }
           }
         }
         """;

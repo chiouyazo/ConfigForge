@@ -213,11 +213,30 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
 
         Session.SetActiveCategory(index);
 
+        // A collection category is only a container for its entries; its own page is just the
+        // "select an entry" placeholder. Landing there is a dead end, so select the first entry
+        // (the add affordance stays in the sidebar) unless one is already selected.
+        if (
+            index >= 0
+            && index < categories.Count
+            && categories[index].CollectionKey is { Length: > 0 } collectionKey
+            && string.IsNullOrEmpty(Session.GetSelectedEntry(collectionKey))
+            && FirstEntryKey(collectionKey) is { } firstEntry
+        )
+        {
+            Session.SetSelectedEntry(collectionKey, firstEntry);
+        }
+
         if (OnCategoryChanged.HasDelegate && index >= 0 && index < categories.Count)
         {
             await OnCategoryChanged.InvokeAsync(categories[index].Label).ConfigureAwait(false);
         }
     }
+
+    private string? FirstEntryKey(string collectionKey) =>
+        Session.Document[collectionKey] is IDictionary<string, object?> { Count: > 0 } map
+            ? map.Keys.First()
+            : null;
 
     // If the active category is locked or hidden by a rule, switch to the first usable one so the
     // canvas never shows a tab the sidebar disables.
@@ -411,6 +430,18 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
 
     private async Task SaveAsync()
     {
+        ConfigDocumentParseResult check = Engine.Parse(Engine.Serialize(Session.Document), Schema);
+        if (!check.IsValid)
+        {
+            Session.ReplaceDocument(check.Document, check);
+            NavigateToFirstProblem(check);
+            Session.EnqueueToast(
+                "Please fix the highlighted required fields before saving.",
+                ToastSeverity.Warning
+            );
+            return;
+        }
+
         try
         {
             await OnSave.InvokeAsync(Session.Document).ConfigureAwait(false);
@@ -422,6 +453,43 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
 #pragma warning restore CA1031
         {
             Session.EnqueueToast($"Save failed: {ex.Message}", ToastSeverity.Danger);
+        }
+    }
+
+    private static string? FirstProblemKey(ConfigDocumentParseResult result)
+    {
+        if (result.MissingRequiredKeys.Count > 0)
+        {
+            return result.MissingRequiredKeys[0];
+        }
+
+        return result.InvalidValues.Count > 0 ? result.InvalidValues[0].Key : null;
+    }
+
+    // Jump the sidebar to the entry that owns the first validation problem, so a required field
+    // buried in a collection entry (e.g. shops/<guid>/…) is reachable rather than hidden.
+    private void NavigateToFirstProblem(ConfigDocumentParseResult result)
+    {
+        string? key = FirstProblemKey(result);
+        if (key is null)
+        {
+            return;
+        }
+
+        string[] segments = key.Split('/');
+        IReadOnlyList<CategoryElement> categories = Schema.Categories;
+        for (int i = 0; i < categories.Count; i++)
+        {
+            if (
+                categories[i].CollectionKey is { Length: > 0 } collectionKey
+                && string.Equals(collectionKey, segments[0], StringComparison.Ordinal)
+                && segments.Length > 1
+            )
+            {
+                Session.SetActiveCategory(i);
+                Session.SetSelectedEntry(collectionKey, segments[1]);
+                return;
+            }
         }
     }
 

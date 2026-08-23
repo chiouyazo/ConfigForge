@@ -109,7 +109,7 @@ public sealed class EditingSession : IDisposable
         _fieldErrors.Clear();
         _selectedEntries.Clear();
 
-        _dirtyTracker.IgnoredKeys = schema.UntrackedKeys;
+        RefreshIgnoredKeys();
         _dirtyTracker.Snapshot(document);
         _dirtyTracker.Update(document);
 
@@ -131,8 +131,20 @@ public sealed class EditingSession : IDisposable
         ParseResult = parseResult;
 
         _fieldErrors.Clear();
+        RefreshIgnoredKeys();
         _dirtyTracker.Update(document);
         RaiseStateChanged();
+    }
+
+    private void RefreshIgnoredKeys()
+    {
+        if (Schema is { } schema)
+        {
+            _dirtyTracker.IgnoredKeys = new HashSet<string>(
+                SchemaWalker.UntrackedKeys(schema, Document),
+                StringComparer.Ordinal
+            );
+        }
     }
 
     /// <summary>Updates the retained raw JSON, e.g. after a re-parse from the editor.</summary>
@@ -250,6 +262,7 @@ public sealed class EditingSession : IDisposable
 
         Document[key] = value;
         RunFieldValidator(key, value);
+        RefreshIgnoredKeys();
         _dirtyTracker.Update(Document);
         RaiseStateChanged();
     }
@@ -393,6 +406,7 @@ public sealed class EditingSession : IDisposable
     /// </summary>
     public void AcceptAsSaved()
     {
+        RefreshIgnoredKeys();
         _dirtyTracker.Snapshot(Document);
         _dirtyTracker.Update(Document);
         RaiseStateChanged();

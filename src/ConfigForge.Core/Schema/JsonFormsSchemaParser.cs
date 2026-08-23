@@ -132,6 +132,7 @@ public sealed partial class JsonFormsSchemaParser : IJsonFormsSchemaParser
                     Variant = GetString(action, "variant") ?? "secondary",
                     Category = GetString(placement, "category"),
                     Position = GetString(placement, "position") ?? "bottom",
+                    RequiresEntry = GetBool(action, "requiresEntry") ?? false,
                 }
             );
         }
@@ -324,6 +325,7 @@ public sealed partial class JsonFormsSchemaParser : IJsonFormsSchemaParser
             Unit = GetString(control, "unit") ?? GetString(propSchema, "x-unit"),
             Required = required,
             ReadOnly = GetBool(propSchema, "readOnly") ?? false,
+            Hidden = GetBool(control, "hidden") ?? GetBool(propSchema, "x-hidden") ?? false,
             DefaultValue = propSchema.TryGetPropertyValue("default", out JsonNode? def)
                 ? JsonValueHelper.FromElement(def.Deserialize<JsonElement>())
                 : null,

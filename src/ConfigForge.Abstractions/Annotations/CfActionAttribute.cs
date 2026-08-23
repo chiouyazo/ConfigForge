@@ -41,4 +41,10 @@ public sealed class CfActionAttribute : Attribute
 
     /// <summary>Optional icon identifier.</summary>
     public string? Icon { get; init; }
+
+    /// <summary>
+    /// When true, the button only appears while an entry of the (collection) category is selected,
+    /// and its handler runs for that entry — e.g. a per-shop "test connection" action.
+    /// </summary>
+    public bool RequiresEntry { get; init; }
 }

@@ -81,10 +81,11 @@ All of these live in `ConfigForge.Abstractions.Annotations`. They only annotate;
 | `[CfCategory("…")]` | Tab within a group (or a top-level tab if no groups). |
 | `[CfSection("…")]` | A titled box (or a tab inside a `oneof` variant) grouping fields within a tab. |
 | `[CfReadOnly]` *(via `[CfOptions]`)* | Render read-only (schema `readOnly`): shown but not editable. |
+| `[CfHidden]` *(or `[CfOptions(Hidden=true)]`)* | Never rendered, but the value stays in the document and is readable by actions/rules — for pure UI state (e.g. a "connection tested" flag). |
 | `[CfEnableWhen("path", value)]` | Enable this field only while another field equals `value` (default `true`). Presence form: `[CfEnableWhen("path", CfCondition.IsNotEmpty)]` (also `IsSet`) enables while the watched field is set / non-empty, not just on equality. |
 | `[CfVisibleWhen("path", value)]` | Show this field only while another field equals `value`. Same `CfCondition.IsSet`/`IsNotEmpty` presence form as above. |
 | `[CfCategoryMeta("cat", Icon=…, Description=…)]` | **On the type.** Icon/description for a category. Repeatable. |
-| `[CfAction("id", Label=…, Category=…, Icon=…)]` | **On the type.** Declares an action button; the handler is registered in code with the same id. Repeatable. |
+| `[CfAction("id", Label=…, Category=…, Icon=…)]` | **On the type.** Declares an action button; the handler is registered in code with the same id. Repeatable. Add `RequiresEntry = true` for a per-entry action (e.g. "test connection"): it shows only while a collection entry is selected and runs for that entry. |
 | `[CfCategoryEnableWhen("cat", "path", …)]` | **On the type.** Lock a whole tab (shown but not selectable) unless the watched field matches. Same value/`CfCondition` forms as `[CfEnableWhen]`. Repeatable. |
 | `[CfCategoryVisibleWhen("cat", "path", …)]` | **On the type.** Hide a whole tab unless the watched field matches. Repeatable. |
 | `[CfSectionEnableWhen("section", "path", …)]` | **On the type.** Lock a section — most visibly a `oneof` variant's **sub-tab** — unless the watched field matches. The path is relative to the entry, so it works per map entry (e.g. per shop). Repeatable. |

@@ -33,6 +33,13 @@ public sealed class FieldDefinition
     /// <summary>True when the schema marks the property <c>readOnly</c>.</summary>
     public bool ReadOnly { get; init; }
 
+    /// <summary>
+    /// True when the field is never rendered (from <c>x-hidden</c> / <c>[CfHidden]</c>). Its value
+    /// still lives in the document and remains readable by actions and by rules that watch it, so
+    /// it can hold pure UI state (e.g. a connection-tested flag) without appearing in the form.
+    /// </summary>
+    public bool Hidden { get; init; }
+
     /// <summary>The declared schema <c>default</c>, if any, as a CLR value.</summary>
     public object? DefaultValue { get; init; }
 
@@ -124,6 +131,7 @@ public sealed class FieldDefinition
             Unit = Unit,
             Required = Required,
             ReadOnly = ReadOnly,
+            Hidden = Hidden,
             DefaultValue = DefaultValue,
             LoaderId = LoaderId,
             ValidatorId = ValidatorId,
@@ -227,6 +235,7 @@ public sealed class FieldDefinition
             Unit = Unit,
             Required = Required,
             ReadOnly = ReadOnly,
+            Hidden = Hidden,
             DefaultValue = DefaultValue,
             LoaderId = LoaderId,
             ValidatorId = ValidatorId,

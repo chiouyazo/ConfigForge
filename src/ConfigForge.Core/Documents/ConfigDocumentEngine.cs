@@ -85,12 +85,9 @@ public sealed partial class ConfigDocumentEngine : IConfigDocumentEngine
         );
         List<string> unknownKeys = [.. document.Keys.Where(k => !knownTopLevel.Contains(k))];
 
-        List<string> missingRequired =
-        [
-            .. schema
-                .Fields.Values.Where(f => f.Required && !document.ContainsKey(f.Key))
-                .Select(f => f.Key),
-        ];
+        // Recursive: a required field inside a map entry or oneof variant (e.g.
+        // shops/<guid>/syncChannels) is invisible to the flat top-level field list.
+        IReadOnlyList<string> missingRequired = SchemaWalker.MissingRequiredKeys(schema, document);
 
         List<ValidationError> invalidValues = ValidateValues(document, schema);
 
@@ -126,13 +123,16 @@ public sealed partial class ConfigDocumentEngine : IConfigDocumentEngine
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(schema);
 
-        if (schema.UntrackedKeys.Count == 0)
+        // Recursive: strip untracked fields wherever they live, including inside map entries and
+        // oneof variants (e.g. shops/<guid>/connectionValid), which the flat UntrackedKeys misses.
+        IReadOnlyList<string> untrackedKeys = SchemaWalker.UntrackedKeys(schema, document);
+        if (untrackedKeys.Count == 0)
         {
             return Serialize(document);
         }
 
         ConfigDocument persisted = document.Clone();
-        foreach (string untracked in schema.UntrackedKeys)
+        foreach (string untracked in untrackedKeys)
         {
             persisted.Remove(untracked);
         }
