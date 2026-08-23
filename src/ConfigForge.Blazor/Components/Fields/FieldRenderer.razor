@@ -1,3 +1,11 @@
+@{
+    // One place resolves rules + programmatic enable + read-only for EVERY field, so gating works
+    // whether this field is rendered by the layout ControlRenderer or directly inside a map/array/
+    // oneof entry (which bypass the ControlRenderer entirely).
+    (bool visible, bool disabled) = ResolveState();
+}
+@if (visible)
+{
 <div class="cf-field-wrapper @(FieldError is not null ? "cf-field-has-error" : string.Empty)">
 @if (PluginComponentType is not null)
 {
@@ -9,80 +17,80 @@ else
     {
         case "text":
         case "string":
-            <TextField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />
+            <TextField Control="Descriptor" Document="Document" Disabled="disabled" OnFieldChanged="OnFieldChanged" />
             break;
         case "textarea":
         case "multiline":
-            <TextAreaField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />
+            <TextAreaField Control="Descriptor" Document="Document" Disabled="disabled" OnFieldChanged="OnFieldChanged" />
             break;
         case "password":
-            <PasswordField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />
+            <PasswordField Control="Descriptor" Document="Document" Disabled="disabled" OnFieldChanged="OnFieldChanged" />
             break;
         case "secret":
-            <SecretField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />
+            <SecretField Control="Descriptor" Document="Document" Disabled="disabled" OnFieldChanged="OnFieldChanged" />
             break;
         case "secretlist":
-            <SecretListField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />
+            <SecretListField Control="Descriptor" Document="Document" Disabled="disabled" OnFieldChanged="OnFieldChanged" />
             break;
         case "number":
         case "integer":
-            <NumberField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />
+            <NumberField Control="Descriptor" Document="Document" Disabled="disabled" OnFieldChanged="OnFieldChanged" />
             break;
         case "slider":
         case "range":
-            <SliderField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />
+            <SliderField Control="Descriptor" Document="Document" Disabled="disabled" OnFieldChanged="OnFieldChanged" />
             break;
         case "checkbox":
         case "boolean":
-            <CheckboxField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />
+            <CheckboxField Control="Descriptor" Document="Document" Disabled="disabled" OnFieldChanged="OnFieldChanged" />
             break;
         case "checklist":
         case "multiselect":
-            <ChecklistField Control="Descriptor" Document="Document" Disabled="Disabled" Options="Options" Loading="Loading" OnFieldChanged="OnFieldChanged" />
+            <ChecklistField Control="Descriptor" Document="Document" Disabled="disabled" Options="Options" Loading="Loading" OnFieldChanged="OnFieldChanged" />
             break;
         case "select":
         case "dropdown":
         case "enum":
-            <SelectField Control="Descriptor" Document="Document" Disabled="Disabled" Options="Options" Loading="Loading" OnFieldChanged="OnFieldChanged" />
+            <SelectField Control="Descriptor" Document="Document" Disabled="disabled" Options="Options" Loading="Loading" OnFieldChanged="OnFieldChanged" />
             break;
         case "date":
-            <DateField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />
+            <DateField Control="Descriptor" Document="Document" Disabled="disabled" OnFieldChanged="OnFieldChanged" />
             break;
         case "datetime":
-            <DateTimeField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />
+            <DateTimeField Control="Descriptor" Document="Document" Disabled="disabled" OnFieldChanged="OnFieldChanged" />
             break;
         case "time":
-            <TimeField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />
+            <TimeField Control="Descriptor" Document="Document" Disabled="disabled" OnFieldChanged="OnFieldChanged" />
             break;
         case "daterange":
-            <DateRangeField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />
+            <DateRangeField Control="Descriptor" Document="Document" Disabled="disabled" OnFieldChanged="OnFieldChanged" />
             break;
         case "color":
-            <ColorPickerField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />
+            <ColorPickerField Control="Descriptor" Document="Document" Disabled="disabled" OnFieldChanged="OnFieldChanged" />
             break;
         case "tags":
         case "taglist":
-            <TagListField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />
+            <TagListField Control="Descriptor" Document="Document" Disabled="disabled" OnFieldChanged="OnFieldChanged" />
             break;
         case "arrayobject":
-            <ArrayObjectField Field="Field" Disabled="Disabled" />
+            <ArrayObjectField Field="Field" Disabled="disabled" />
             break;
         case "map":
-            <MapField Field="Field" Disabled="Disabled" />
+            <MapField Field="Field" Disabled="disabled" />
             break;
         case "oneof":
-            <OneOfObjectField Field="Field" Disabled="Disabled" />
+            <OneOfObjectField Field="Field" Disabled="disabled" />
             break;
         case "nullable-object":
-            <NullableObjectField Field="Field" Disabled="Disabled" />
+            <NullableObjectField Field="Field" Disabled="disabled" />
             break;
         case "filepath":
         case "file":
-            <FilePathField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />
+            <FilePathField Control="Descriptor" Document="Document" Disabled="disabled" OnFieldChanged="OnFieldChanged" />
             break;
         case "code":
         case "codeeditor":
-            <CodeEditorField Control="Descriptor" Document="Document" Disabled="Disabled" OnFieldChanged="OnFieldChanged" />
+            <CodeEditorField Control="Descriptor" Document="Document" Disabled="disabled" OnFieldChanged="OnFieldChanged" />
             break;
         default:
             <UnknownFieldFallback Control="Descriptor" Document="Document" OnFieldChanged="OnFieldChanged" />
@@ -94,3 +102,4 @@ else
     <p class="cf-field-error" role="alert">@FieldError</p>
 }
 </div>
+}

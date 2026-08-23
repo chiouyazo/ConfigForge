@@ -24,9 +24,21 @@
                 continue;
             }
 
+            (bool visible, bool enabled) = CategoryVisibility.Resolve(
+                category,
+                RuleEvaluator,
+                Session.Document
+            );
+            if (!visible)
+            {
+                continue;
+            }
+
             <li>
                 <button type="button"
-                        class="cf-category-item @(index == ActiveIndex ? "cf-active" : string.Empty)"
+                        class="cf-category-item @(index == ActiveIndex ? "cf-active" : string.Empty) @(enabled ? string.Empty : "cf-disabled")"
+                        disabled="@(!enabled)"
+                        title="@(enabled ? null : "Locked")"
                         @onclick="@(() => OnSelect.InvokeAsync(index))">
                     @if (!string.IsNullOrEmpty(category.Icon))
                     {
@@ -35,7 +47,7 @@
                     <span class="cf-category-label">@category.Label</span>
                 </button>
 
-                @if (category.CollectionKey is { Length: > 0 } collectionKey)
+                @if (enabled && category.CollectionKey is { Length: > 0 } collectionKey)
                 {
                     <ul class="cf-collection-list">
                         @foreach (string entryKey in EntryKeys(collectionKey))
@@ -117,6 +129,9 @@
 
     [Inject]
     private EditingSession Session { get; set; } = default!;
+
+    [Inject]
+    private IJsonFormsRuleEvaluator RuleEvaluator { get; set; } = default!;
 
     private string _filter = string.Empty;
 

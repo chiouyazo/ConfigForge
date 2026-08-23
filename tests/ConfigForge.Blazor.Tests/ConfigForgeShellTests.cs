@@ -158,6 +158,215 @@ public sealed class ConfigForgeShellTests : BunitContext
         Assert.Contains("Interval (s)", cut.Markup, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ConfigForgeShell_CategoryEnableRule_LocksTabUntilConditionMet()
+    {
+        IJsonFormsSchemaParser parser = Services.GetRequiredService<IJsonFormsSchemaParser>();
+        ConfigSchema schema = parser.Parse(GatedCategorySchema);
+
+        IRenderedComponent<ConfigForgeShell> cut = Render<ConfigForgeShell>(parameters =>
+            parameters.Add(p => p.Schema, schema)
+        );
+
+        // connectionValid is unset → the "Config" tab is rendered but locked (disabled).
+        var configButton = cut.FindAll("button.cf-category-item")
+            .Single(b => b.TextContent.Contains("Config", StringComparison.Ordinal));
+        Assert.Contains("cf-disabled", configButton.ClassName, StringComparison.Ordinal);
+        Assert.True(configButton.HasAttribute("disabled"));
+
+        // Set the watched field → the tab unlocks live (no reload).
+        EditingSession session = Services.GetRequiredService<EditingSession>();
+        session.SetFieldValue("connectionValid", "ok");
+
+        configButton = cut.FindAll("button.cf-category-item")
+            .Single(b => b.TextContent.Contains("Config", StringComparison.Ordinal));
+        Assert.DoesNotContain("cf-disabled", configButton.ClassName, StringComparison.Ordinal);
+        Assert.False(configButton.HasAttribute("disabled"));
+    }
+
+    private const string GatedCategorySchema = """
+        {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "connectionValid": { "type": "string", "title": "Connection Valid" },
+              "threshold": { "type": "string", "title": "Threshold" }
+            }
+          },
+          "uiSchema": {
+            "type": "Categorization",
+            "elements": [
+              { "type": "Category", "label": "Connection", "elements": [ { "type": "Control", "scope": "#/properties/connectionValid" } ] },
+              { "type": "Category", "label": "Config", "elements": [ { "type": "Control", "scope": "#/properties/threshold" } ] }
+            ]
+          },
+          "x-cf": {
+            "id": "gated", "name": "Gated",
+            "categories": {
+              "Config": {
+                "rule": {
+                  "effect": "ENABLE",
+                  "condition": { "scope": "#/properties/connectionValid", "schema": { "not": { "type": "null" } } }
+                }
+              }
+            }
+          }
+        }
+        """;
+
+    [Fact]
+    public void ConfigForgeShell_FieldRuleInsideMapEntry_DisablesUntilSiblingSet()
+    {
+        IJsonFormsSchemaParser parser = Services.GetRequiredService<IJsonFormsSchemaParser>();
+        ConfigSchema schema = parser.Parse(EntryFieldRuleSchema);
+
+        var document = new ConfigDocument();
+        document["shops"] = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["33333333-3333-3333-3333-333333333333"] = new Dictionary<string, object?>(
+                StringComparer.Ordinal
+            )
+            {
+                ["url"] = "",
+                ["token"] = "abc",
+            },
+        };
+
+        IRenderedComponent<ConfigForgeShell> cut = Render<ConfigForgeShell>(parameters =>
+            parameters.Add(p => p.Schema, schema).Add(p => p.Document, document)
+        );
+        cut.Find(".cf-collection-select").Click();
+
+        // url is empty → token's [CfEnableWhen(url, IsNotEmpty)] rule (rebased onto shops/<guid>/url)
+        // disables it. This is the case that was silently dead before: rules never fired inside a
+        // map entry, so nothing under shops/<guid>/ could be locked.
+        Assert.NotEmpty(cut.FindAll("input[disabled]"));
+
+        EditingSession session = Services.GetRequiredService<EditingSession>();
+        session.SetFieldValue("shops/33333333-3333-3333-3333-333333333333/url", "https://x");
+
+        Assert.Empty(cut.FindAll("input[disabled]"));
+    }
+
+    [Fact]
+    public void ConfigForgeShell_SectionRuleInOneOf_LocksSubTabUntilConditionMet()
+    {
+        IJsonFormsSchemaParser parser = Services.GetRequiredService<IJsonFormsSchemaParser>();
+        ConfigSchema schema = parser.Parse(SectionRuleSchema);
+
+        var document = new ConfigDocument();
+        document["shops"] = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["44444444-4444-4444-4444-444444444444"] = new Dictionary<string, object?>(
+                StringComparer.Ordinal
+            )
+            {
+                ["type"] = "shopware6",
+                ["url"] = "",
+            },
+        };
+
+        IRenderedComponent<ConfigForgeShell> cut = Render<ConfigForgeShell>(parameters =>
+            parameters.Add(p => p.Schema, schema).Add(p => p.Document, document)
+        );
+        cut.Find(".cf-collection-select").Click();
+
+        // url is empty → the "Config" sub-tab is rendered but locked (disabled).
+        var configTab = cut.FindAll("button.cf-tab")
+            .Single(b => b.TextContent.Contains("Config", StringComparison.Ordinal));
+        Assert.Contains("cf-disabled", configTab.ClassName, StringComparison.Ordinal);
+        Assert.True(configTab.HasAttribute("disabled"));
+
+        // Fill the entry's url → the sub-tab unlocks live.
+        EditingSession session = Services.GetRequiredService<EditingSession>();
+        session.SetFieldValue("shops/44444444-4444-4444-4444-444444444444/url", "https://x");
+
+        configTab = cut.FindAll("button.cf-tab")
+            .Single(b => b.TextContent.Contains("Config", StringComparison.Ordinal));
+        Assert.DoesNotContain("cf-disabled", configTab.ClassName, StringComparison.Ordinal);
+        Assert.False(configTab.HasAttribute("disabled"));
+    }
+
+    private const string SectionRuleSchema = """
+        {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "shops": {
+                "type": "object",
+                "x-key-format": "uuid",
+                "additionalProperties": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "x-section-rules": {
+                        "Config": {
+                          "effect": "ENABLE",
+                          "condition": { "scope": "#/properties/url", "schema": { "not": { "enum": [null, ""] } } }
+                        }
+                      },
+                      "properties": {
+                        "type": { "type": "string", "const": "shopware6" },
+                        "url": { "type": "string", "title": "Url", "x-section": "General" },
+                        "threshold": { "type": "string", "title": "Threshold", "x-section": "Config" }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "uiSchema": {
+            "type": "Categorization",
+            "elements": [
+              { "type": "Category", "label": "Shops", "elements": [ { "type": "Control", "scope": "#/properties/shops" } ] }
+            ]
+          },
+          "x-cf": {
+            "id": "secrule", "name": "SecRule",
+            "categories": { "Shops": { "collection": "shops", "collectionLabel": "url", "collectionAddLabel": "Add shop" } }
+          }
+        }
+        """;
+
+    private const string EntryFieldRuleSchema = """
+        {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "shops": {
+                "type": "object",
+                "x-key-format": "uuid",
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "url": { "type": "string", "title": "Url" },
+                    "token": {
+                      "type": "string",
+                      "title": "Token",
+                      "x-rule": {
+                        "effect": "ENABLE",
+                        "condition": { "scope": "#/properties/url", "schema": { "not": { "enum": [null, ""] } } }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "uiSchema": {
+            "type": "Categorization",
+            "elements": [
+              { "type": "Category", "label": "Shops", "elements": [ { "type": "Control", "scope": "#/properties/shops" } ] }
+            ]
+          },
+          "x-cf": {
+            "id": "entryrule", "name": "EntryRule",
+            "categories": { "Shops": { "collection": "shops", "collectionLabel": "url", "collectionAddLabel": "Add shop" } }
+          }
+        }
+        """;
+
     private const string ObjectCollectionSchema = """
         {
           "schema": {

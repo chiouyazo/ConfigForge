@@ -37,6 +37,27 @@ public sealed partial class FieldRenderer : ComponentBase, IDisposable
     [Inject]
     private IServiceProvider Services { get; set; } = default!;
 
+    [Inject]
+    private IJsonFormsRuleEvaluator RuleEvaluator { get; set; } = default!;
+
+    /// <summary>
+    /// Resolves the field's effective visibility and disabled state from its rules, its
+    /// programmatic enable state, its read-only flag, and the disabled state cascaded from a
+    /// parent container. Evaluated here (not only in <c>ControlRenderer</c>) so it applies to
+    /// fields rendered directly inside a map/array/oneof entry too.
+    /// </summary>
+    private (bool Visible, bool Disabled) ResolveState()
+    {
+        (bool visible, bool ruleEnabled) = RuleEvaluation.Resolve(
+            Field.Rules,
+            RuleEvaluator,
+            Session.Document
+        );
+        bool enabled =
+            ruleEnabled && !Field.ReadOnly && Session.IsFieldEnabled(Field.Key) && !Disabled;
+        return (visible, !enabled);
+    }
+
     private ConfigDocument Document => Session.Document;
 
     private EventCallback<FieldChangedArgs> OnFieldChanged =>

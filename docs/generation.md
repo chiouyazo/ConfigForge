@@ -85,6 +85,10 @@ All of these live in `ConfigForge.Abstractions.Annotations`. They only annotate;
 | `[CfVisibleWhen("path", value)]` | Show this field only while another field equals `value`. Same `CfCondition.IsSet`/`IsNotEmpty` presence form as above. |
 | `[CfCategoryMeta("cat", Icon=…, Description=…)]` | **On the type.** Icon/description for a category. Repeatable. |
 | `[CfAction("id", Label=…, Category=…, Icon=…)]` | **On the type.** Declares an action button; the handler is registered in code with the same id. Repeatable. |
+| `[CfCategoryEnableWhen("cat", "path", …)]` | **On the type.** Lock a whole tab (shown but not selectable) unless the watched field matches. Same value/`CfCondition` forms as `[CfEnableWhen]`. Repeatable. |
+| `[CfCategoryVisibleWhen("cat", "path", …)]` | **On the type.** Hide a whole tab unless the watched field matches. Repeatable. |
+| `[CfSectionEnableWhen("section", "path", …)]` | **On the type.** Lock a section — most visibly a `oneof` variant's **sub-tab** — unless the watched field matches. The path is relative to the entry, so it works per map entry (e.g. per shop). Repeatable. |
+| `[CfSectionVisibleWhen("section", "path", …)]` | **On the type.** Hide a section/sub-tab unless the watched field matches. Repeatable. |
 | `[CfRow("id")]` | Lay adjacent fields sharing the id side by side (a `HorizontalLayout`) instead of stacked. |
 
 ### Validation: use standard DataAnnotations (no ConfigForge attribute needed)
@@ -250,6 +254,37 @@ Actions, category icons/descriptions, conditional enable/show rules, and side-by
 - **Bespoke `uiSchema` structure** beyond what the attributes express (arbitrary nesting of layouts, etc.). ⚠️ The overlay **replaces** arrays rather than merging them, so hand-writing `uiSchema` discards the generated layout for that branch — rarely worth it.
 
 Note that `[CfEnableWhen]`/`[CfVisibleWhen]` emit an **inline** rule on the property (`x-rule`), which the parser reads per-field — so conditional rules survive the overlay merge and don't require hand-writing `uiSchema` (the array-replace trap the overlay otherwise falls into).
+
+### Gating a whole tab (e.g. lock until a connection is tested)
+
+`[CfCategoryEnableWhen]`/`[CfCategoryVisibleWhen]` apply a rule to a whole top-level category. `[CfSectionEnableWhen]`/`[CfSectionVisibleWhen]` do the same for a **section** — most visibly a `oneof` variant's **sub-tab** (e.g. a shop's `Config`/`Mapping` sub-tabs), and their condition path is relative to the entry, so each map entry gates independently. An `EnableWhen` locks the tab (shown but not selectable) until its condition holds; a `VisibleWhen` hides it. If the active tab becomes locked/hidden, the shell/variant moves to the first usable tab. Rules also work on **individual fields** anywhere (including inside a map/oneof entry) via `[CfEnableWhen]`/`[CfVisibleWhen]`.
+
+The condition reads a **field**, so a runtime state (like "the connection is valid") is surfaced as a field the action sets — no separate runtime-state concept. Make it an **untracked, read-only status field**: untracked so it never counts as an unsaved change or gets persisted, read-only so the user can't type in it, but an action can still set it and the tabs react:
+
+```csharp
+[CfCategoryEnableWhen("Config", "connectionValid", CfCondition.IsSet)]   // locked until set
+[CfCategoryEnableWhen("Mapping", "connectionValid", CfCondition.IsSet)]
+public sealed record ShopConfig
+{
+    [CfCategory("Connection")]
+    public string? Url { get; init; }
+
+    [CfCategory("Connection"), CfOptions(Label = "Connection status", Tracked = false, ReadOnly = true)]
+    public string? ConnectionValid { get; init; }   // set by the action; doubles as a visible status
+}
+```
+
+```csharp
+// The "Test connection" action sets the field the tabs watch; they unlock live.
+registry.RegisterAction("shop.testConnection", async ctx =>
+{
+    bool ok = await TestAsync(ctx["url"], ctx.CancellationToken);
+    await ctx.SetFieldValueAsync("connectionValid", ok ? "ok" : null);
+    await ctx.ShowToastAsync(ok ? "Connected" : "Failed", ok ? ToastSeverity.Success : ToastSeverity.Danger);
+});
+```
+
+Reset `connectionValid` to `null` when the connection inputs change if you want the tabs to re-lock until re-tested.
 
 ## Using the generated schema
 

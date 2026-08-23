@@ -391,6 +391,7 @@ public sealed partial class JsonFormsSchemaParser : IJsonFormsSchemaParser
                     DiscriminatorValue = discriminator.Value.value,
                     Label = discriminator.Value.value,
                     Children = children,
+                    SectionRules = ReadSectionRules(variantSchema["x-section-rules"]),
                 }
             );
         }
@@ -706,7 +707,45 @@ public sealed partial class JsonFormsSchemaParser : IJsonFormsSchemaParser
             CollectionKey = GetString(meta, "collection"),
             CollectionEntryLabelKey = GetString(meta, "collectionLabel"),
             CollectionAddLabel = GetString(meta, "collectionAddLabel"),
+            Rules = ReadRuleList(meta["rule"]),
         };
+    }
+
+    /// <summary>Reads a rule or array of rules from a node (e.g. a category's or section's <c>rule</c>).</summary>
+    private static List<JsonFormsRule> ReadRuleList(JsonNode? ruleNode)
+    {
+        if (ruleNode is JsonArray array)
+        {
+            List<JsonFormsRule> rules = [];
+            foreach (JsonNode? element in array)
+            {
+                if (ParseRule(element) is { } rule)
+                {
+                    rules.Add(rule);
+                }
+            }
+
+            return rules;
+        }
+
+        return ParseRule(ruleNode) is { } single ? [single] : [];
+    }
+
+    /// <summary>Reads <c>x-section-rules</c> (section name → rule or rule array) into a map.</summary>
+    private static Dictionary<string, IReadOnlyList<JsonFormsRule>> ReadSectionRules(JsonNode? node)
+    {
+        if (node is not JsonObject obj)
+        {
+            return new Dictionary<string, IReadOnlyList<JsonFormsRule>>(StringComparer.Ordinal);
+        }
+
+        Dictionary<string, IReadOnlyList<JsonFormsRule>> map = new(StringComparer.Ordinal);
+        foreach (KeyValuePair<string, JsonNode?> entry in obj)
+        {
+            map[entry.Key] = ReadRuleList(entry.Value);
+        }
+
+        return map;
     }
 
     private static List<UiElement> ParseElements(

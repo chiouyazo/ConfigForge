@@ -17,7 +17,8 @@
 
     @{
         OneOfVariant? active = ActiveVariant;
-        List<string> sections = Sections(active);
+        List<string> visibleSections = active is null ? [] : VisibleSections(active);
+        string? activeSection = active is null ? null : UsableActiveSection(active, visibleSections);
     }
     @if (active is not null)
     {
@@ -29,36 +30,41 @@
                 <FieldRenderer Field="scoped" Disabled="Disabled" />
             }
 
-            @if (sections.Count > 1)
+            @if (visibleSections.Count > 1)
             {
-                string activeSection = ActiveSection(sections);
                 <div class="cf-tabs">
                     <div class="cf-tab-strip" role="tablist">
-                        @foreach (string section in sections)
+                        @foreach (string section in visibleSections)
                         {
                             string s = section;
+                            bool enabled = SectionState(active, s).Enabled;
                             <button type="button"
                                     role="tab"
                                     aria-selected="@(s == activeSection ? "true" : "false")"
-                                    class="cf-tab @(s == activeSection ? "cf-active" : string.Empty)"
+                                    disabled="@(!enabled)"
+                                    title="@(enabled ? null : "Locked")"
+                                    class="cf-tab @(s == activeSection ? "cf-active" : string.Empty) @(enabled ? string.Empty : "cf-disabled")"
                                     @onclick="@(() => _activeSection = s)">
                                 @s
                             </button>
                         }
                     </div>
                     <div class="cf-tab-panel" role="tabpanel">
-                        @foreach (FieldDefinition child in active.Children.Where(c => c.Section == activeSection))
+                        @if (activeSection is not null)
                         {
-                            FieldDefinition scoped = child.WithKey(ChildKey(child));
-                            <FieldRenderer Field="scoped" Disabled="Disabled" />
+                            @foreach (FieldDefinition child in active.Children.Where(c => c.Section == activeSection))
+                            {
+                                FieldDefinition scoped = child.WithKey(ChildKey(child));
+                                <FieldRenderer Field="scoped" Disabled="Disabled" />
+                            }
                         }
                     </div>
                 </div>
             }
-            else
+            else if (activeSection is not null)
             {
-                @* A single section (or none) needs no tab strip: render its fields directly. *@
-                @foreach (FieldDefinition child in active.Children.Where(c => !string.IsNullOrEmpty(c.Section)))
+                @* A single usable section needs no tab strip: render its fields directly. *@
+                @foreach (FieldDefinition child in active.Children.Where(c => c.Section == activeSection))
                 {
                     FieldDefinition scoped = child.WithKey(ChildKey(child));
                     <FieldRenderer Field="scoped" Disabled="Disabled" />
@@ -81,7 +87,33 @@
     [Inject]
     private EditingSession Session { get; set; } = default!;
 
+    [Inject]
+    private IJsonFormsRuleEvaluator RuleEvaluator { get; set; } = default!;
+
     private string? _activeSection;
+
+    private (bool Visible, bool Enabled) SectionState(OneOfVariant variant, string section) =>
+        variant.SectionRules.TryGetValue(section, out IReadOnlyList<JsonFormsRule>? rules)
+        && rules.Count > 0
+            ? RuleEvaluation.Resolve(rules, RuleEvaluator, Session.Document, Field.Key)
+            : (true, true);
+
+    private List<string> VisibleSections(OneOfVariant variant) =>
+        [.. Sections(variant).Where(s => SectionState(variant, s).Visible)];
+
+    private string? UsableActiveSection(OneOfVariant variant, List<string> visibleSections)
+    {
+        if (
+            _activeSection is not null
+            && visibleSections.Contains(_activeSection)
+            && SectionState(variant, _activeSection).Enabled
+        )
+        {
+            return _activeSection;
+        }
+
+        return visibleSections.FirstOrDefault(s => SectionState(variant, s).Enabled);
+    }
 
     protected override void OnParametersSet()
     {
@@ -122,12 +154,7 @@
                 .Select(s => s!)
                 .Distinct(StringComparer.Ordinal)];
 
-    private string ActiveSection(List<string> sections) =>
-        _activeSection is not null && sections.Contains(_activeSection)
-            ? _activeSection
-            : sections[0];
-
-    private string ChildKey(FieldDefinition child) => Field.Key + "/" + child.Key;
+    private string ChildKey(FieldDefinition child) => JsonFormsScope.JoinKey(Field.Key, child.Key);
 
     private ControlDescriptor Header =>
         new()

@@ -19,6 +19,14 @@ public sealed class CategoryElement
     public IReadOnlyList<UiElement> Elements { get; init; } = [];
 
     /// <summary>
+    /// Conditional rules gating the whole category, sourced from <c>x-cf.categories[label].rule</c>
+    /// (a single rule or an array). An <c>ENABLE</c> rule locks the tab (shown but not selectable)
+    /// while its condition is unmet; a <c>SHOW</c> rule hides the tab while unmet. Empty for an
+    /// always-available category.
+    /// </summary>
+    public IReadOnlyList<JsonFormsRule> Rules { get; init; } = [];
+
+    /// <summary>
     /// When set, this category is a <em>collection master/detail</em>: the sidebar lists the
     /// entries of the map field named here as selectable sub-items (with add/remove) and the
     /// canvas shows only the selected entry's form instead of the whole map. Sourced from

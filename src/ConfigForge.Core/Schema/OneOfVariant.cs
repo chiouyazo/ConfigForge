@@ -17,4 +17,13 @@ public sealed class OneOfVariant
     /// Keys are relative to a single value and rebased onto <c>parentKey/childKey</c>.
     /// </summary>
     public IReadOnlyList<FieldDefinition> Children { get; init; } = [];
+
+    /// <summary>
+    /// Rules gating whole sections (sub-tabs) of this variant, keyed by section name, from
+    /// <c>x-section-rules</c>. An <c>ENABLE</c> rule locks the sub-tab while its condition is unmet;
+    /// a <c>SHOW</c> rule hides it. The rule condition scopes are relative to a single entry and are
+    /// rebased onto the concrete entry path when the sub-tab is evaluated. Empty when none.
+    /// </summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<JsonFormsRule>> SectionRules { get; init; } =
+        new Dictionary<string, IReadOnlyList<JsonFormsRule>>(StringComparer.Ordinal);
 }

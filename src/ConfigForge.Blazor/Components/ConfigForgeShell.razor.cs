@@ -112,6 +112,9 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
     [Inject]
     private IJSRuntime JS { get; set; } = default!;
 
+    [Inject]
+    private IJsonFormsRuleEvaluator RuleEvaluator { get; set; } = default!;
+
     private ThemeDefinition Theme => ThemeProvider.GetTheme();
 
     private bool HasSchemaJson => !string.IsNullOrEmpty(SchemaJson);
@@ -146,6 +149,7 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
         }
 
         SyncActiveCategoryFromLabel();
+        EnsureActiveCategoryUsable();
     }
 
     private void SyncActiveCategoryFromLabel()
@@ -182,16 +186,72 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
         }
     }
 
-    private void OnSessionChanged(object? sender, EventArgs e) => InvokeAsync(StateHasChanged);
+    private void OnSessionChanged(object? sender, EventArgs e)
+    {
+        // A field change may have locked (or hidden) the active tab; move off it before rendering.
+        EnsureActiveCategoryUsable();
+        InvokeAsync(StateHasChanged);
+    }
 
     private async Task OnSelectCategory(int index)
     {
+        // Ignore selection of a locked/hidden category (a disabled button won't fire this, but the
+        // deep-link path can still reach here).
+        IReadOnlyList<CategoryElement> categories = Schema.Categories;
+        if (index >= 0 && index < categories.Count)
+        {
+            (bool visible, bool enabled) = CategoryVisibility.Resolve(
+                categories[index],
+                RuleEvaluator,
+                Session.Document
+            );
+            if (!visible || !enabled)
+            {
+                return;
+            }
+        }
+
         Session.SetActiveCategory(index);
 
-        IReadOnlyList<CategoryElement> categories = Schema.Categories;
         if (OnCategoryChanged.HasDelegate && index >= 0 && index < categories.Count)
         {
             await OnCategoryChanged.InvokeAsync(categories[index].Label).ConfigureAwait(false);
+        }
+    }
+
+    // If the active category is locked or hidden by a rule, switch to the first usable one so the
+    // canvas never shows a tab the sidebar disables.
+    private void EnsureActiveCategoryUsable()
+    {
+        IReadOnlyList<CategoryElement> categories = Schema.Categories;
+        int active = Session.ActiveCategoryIndex;
+        if (active < 0 || active >= categories.Count)
+        {
+            return;
+        }
+
+        (bool activeVisible, bool activeEnabled) = CategoryVisibility.Resolve(
+            categories[active],
+            RuleEvaluator,
+            Session.Document
+        );
+        if (activeVisible && activeEnabled)
+        {
+            return;
+        }
+
+        for (int i = 0; i < categories.Count; i++)
+        {
+            (bool visible, bool enabled) = CategoryVisibility.Resolve(
+                categories[i],
+                RuleEvaluator,
+                Session.Document
+            );
+            if (visible && enabled)
+            {
+                Session.SetActiveCategory(i);
+                return;
+            }
         }
     }
 

@@ -234,12 +234,44 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
                 schema["required"] = required;
             }
 
+            EmitSectionRules(type, schema);
             return schema;
         }
         finally
         {
             visited.Remove(type);
         }
+    }
+
+    /// <summary>
+    /// Emits <c>x-section-rules</c> (section name → rule or rule array) from a type's
+    /// <c>[CfSectionEnableWhen]</c>/<c>[CfSectionVisibleWhen]</c>, so a container (e.g. a oneof
+    /// variant) can gate whole sections/sub-tabs.
+    /// </summary>
+    private static void EmitSectionRules(Type type, JsonObject schema)
+    {
+        List<CfSectionRuleAttribute> rules =
+        [
+            .. type.GetCustomAttributes<CfSectionRuleAttribute>(),
+        ];
+        if (rules.Count == 0)
+        {
+            return;
+        }
+
+        JsonObject sectionRules = [];
+        foreach (IGrouping<string, CfSectionRuleAttribute> group in rules.GroupBy(r => r.Section))
+        {
+            JsonArray built =
+            [
+                .. group.Select(r =>
+                    (JsonNode)BuildRuleObject(r.Effect, r.FieldPath, r.Condition, r.EqualsValue)
+                ),
+            ];
+            sectionRules[group.Key] = built.Count == 1 ? built[0]!.DeepClone() : built;
+        }
+
+        schema["x-section-rules"] = sectionRules;
     }
 
     private static JsonObject BuildOneOfSchema(
@@ -476,7 +508,11 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
         [
             .. rootType.GetCustomAttributes<CfCategoryMetaAttribute>(),
         ];
-        if (metas.Count == 0)
+        List<CfCategoryRuleAttribute> rules =
+        [
+            .. rootType.GetCustomAttributes<CfCategoryRuleAttribute>(),
+        ];
+        if (metas.Count == 0 && rules.Count == 0)
         {
             return;
         }
@@ -496,6 +532,20 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
             }
 
             categories[meta.Category] = entry;
+        }
+
+        foreach (IGrouping<string, CfCategoryRuleAttribute> group in rules.GroupBy(r => r.Category))
+        {
+            JsonObject entry = categories[group.Key] as JsonObject ?? [];
+            JsonArray built =
+            [
+                .. group.Select(r =>
+                    (JsonNode)BuildRuleObject(r.Effect, r.FieldPath, r.Condition, r.EqualsValue)
+                ),
+            ];
+            // One rule stays an object; several become an array (the parser reads both forms).
+            entry["rule"] = built.Count == 1 ? built[0]!.DeepClone() : built;
+            categories[group.Key] = entry;
         }
 
         xcf["categories"] = categories;
@@ -543,13 +593,22 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
 
     /// <summary>Builds an inline JsonForms rule (<c>x-rule</c>) from a <c>[CfEnableWhen]</c>/<c>[CfVisibleWhen]</c>.</summary>
     private static JsonObject BuildRule(CfRuleAttribute rule) =>
+        BuildRuleObject(rule.Effect, rule.FieldPath, rule.Condition, rule.EqualsValue);
+
+    /// <summary>Builds a JsonForms rule object; shared by field rules and category rules.</summary>
+    private static JsonObject BuildRuleObject(
+        string effect,
+        string fieldPath,
+        CfCondition condition,
+        object? equalsValue
+    ) =>
         new()
         {
-            ["effect"] = rule.Effect,
+            ["effect"] = effect,
             ["condition"] = new JsonObject
             {
-                ["scope"] = ScopeFromPath(rule.FieldPath),
-                ["schema"] = RuleConditionSchema(rule),
+                ["scope"] = ScopeFromPath(fieldPath),
+                ["schema"] = RuleConditionSchema(condition, equalsValue),
             },
         };
 
@@ -558,8 +617,8 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
     /// by the full JSON Schema validator, so presence checks (is-set / is-not-empty) are expressed
     /// as schema constraints rather than a plain equality.
     /// </summary>
-    private static JsonObject RuleConditionSchema(CfRuleAttribute rule) =>
-        rule.Condition switch
+    private static JsonObject RuleConditionSchema(CfCondition condition, object? equalsValue) =>
+        condition switch
         {
             // Present: not JSON null (a missing field resolves to null and fails this).
             CfCondition.IsSet => new JsonObject { ["not"] = new JsonObject { ["type"] = "null" } },
@@ -568,7 +627,7 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
             {
                 ["not"] = new JsonObject { ["enum"] = new JsonArray(null, "") },
             },
-            _ => new JsonObject { ["const"] = JsonSerializer.SerializeToNode(rule.EqualsValue) },
+            _ => new JsonObject { ["const"] = JsonSerializer.SerializeToNode(equalsValue) },
         };
 
     /// <summary>Converts a slash path (<c>a/b</c>) to a JsonForms scope (<c>#/properties/a/properties/b</c>).</summary>

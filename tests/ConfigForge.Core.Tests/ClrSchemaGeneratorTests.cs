@@ -579,6 +579,80 @@ public sealed class ClrSchemaGeneratorTests
         Assert.Equal("Chunks", props["chunkSizes"]!["x-section"]!.GetValue<string>());
     }
 
+    [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
+    [JsonDerivedType(typeof(GatedShop), "gated")]
+    private abstract record GatedShopBase;
+
+    [CfSectionEnableWhen("Config", "connectionValid", CfCondition.IsSet)]
+    private sealed record GatedShop : GatedShopBase
+    {
+        [CfSection("Config")]
+        public string? Threshold { get; init; }
+
+        public string? ConnectionValid { get; init; }
+    }
+
+    private sealed record SectionRuleConfig
+    {
+        public IDictionary<Guid, GatedShopBase> Shops { get; init; } =
+            new Dictionary<Guid, GatedShopBase>();
+    }
+
+    [Fact]
+    public void CfSectionEnableWhen_EmitsSectionRule_ParsedOntoVariant()
+    {
+        Assert.NotNull(new SectionRuleConfig());
+        Assert.NotNull(new GatedShop());
+        string json = new ClrSchemaGenerator().Generate<SectionRuleConfig>(
+            new SchemaGenerationOptions { Id = "sr" }
+        );
+
+        ConfigSchema schema = new JsonFormsSchemaParser().Parse(json);
+        OneOfVariant variant = schema
+            .Fields["shops"]
+            .ValueField!.OneOfVariants.Single(v =>
+                string.Equals(v.DiscriminatorValue, "gated", StringComparison.Ordinal)
+            );
+
+        IReadOnlyList<JsonFormsRule> configRules = variant.SectionRules["Config"];
+        Assert.Equal(RuleEffect.Enable, Assert.Single(configRules).Effect);
+    }
+
+    [CfCategoryEnableWhen("Config", "connectionValid", CfCondition.IsSet)]
+    private sealed record GatedCategoryConfig
+    {
+        [CfCategory("Connection")]
+        public string? ConnectionValid { get; init; }
+
+        [CfCategory("Config")]
+        public string? Threshold { get; init; }
+    }
+
+    [Fact]
+    public void CfCategoryEnableWhen_EmitsCategoryRule_ParsedOntoCategory()
+    {
+        Assert.NotNull(new GatedCategoryConfig());
+        string json = new ClrSchemaGenerator().Generate<GatedCategoryConfig>(
+            new SchemaGenerationOptions { Id = "gated" }
+        );
+
+        // Raw: the rule sits on x-cf.categories.Config.
+        JsonNode rule = JsonNode.Parse(json)!["x-cf"]!["categories"]!["Config"]!["rule"]!;
+        Assert.Equal("ENABLE", rule["effect"]!.GetValue<string>());
+        Assert.Equal(
+            "#/properties/connectionValid",
+            rule["condition"]!["scope"]!.GetValue<string>()
+        );
+
+        // Parsed: it lands on the CategoryElement so the shell can gate the tab.
+        ConfigSchema schema = new JsonFormsSchemaParser().Parse(json);
+        CategoryElement config = schema.Categories.Single(c =>
+            string.Equals(c.Label, "Config", StringComparison.Ordinal)
+        );
+        JsonFormsRule parsed = Assert.Single(config.Rules);
+        Assert.Equal(RuleEffect.Enable, parsed.Effect);
+    }
+
     private sealed record RuleConfig
     {
         public string? ConnectionString { get; init; }

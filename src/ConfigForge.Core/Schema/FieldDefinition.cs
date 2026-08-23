@@ -110,8 +110,10 @@ public sealed class FieldDefinition
     /// </summary>
     /// <param name="key">The path key for the copy.</param>
     /// <returns>A copy carrying the new key.</returns>
-    public FieldDefinition WithKey(string key) =>
-        new()
+    public FieldDefinition WithKey(string key)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        return new()
         {
             Key = key,
             ControlType = ControlType,
@@ -125,7 +127,7 @@ public sealed class FieldDefinition
             DefaultValue = DefaultValue,
             LoaderId = LoaderId,
             ValidatorId = ValidatorId,
-            Rules = Rules,
+            Rules = RebaseRules(Rules, Key, key),
             Tracked = Tracked,
             Children = Children,
             ValueField = ValueField,
@@ -135,6 +137,77 @@ public sealed class FieldDefinition
             OneOfVariants = OneOfVariants,
             SchemaConstraints = SchemaConstraints,
         };
+    }
+
+    /// <summary>
+    /// When a field template is rebased into a container (e.g. <c>shops/{guid}/url</c>), its rules
+    /// watch siblings relative to that container, so their condition scopes must move by the same
+    /// prefix; otherwise a rule keyed on <c>url</c> would resolve against the document root.
+    /// </summary>
+    private static IReadOnlyList<JsonFormsRule> RebaseRules(
+        IReadOnlyList<JsonFormsRule> rules,
+        string oldKey,
+        string newKey
+    )
+    {
+        if (rules.Count == 0)
+        {
+            return rules;
+        }
+
+        string prefix;
+        if (oldKey.Length == 0)
+        {
+            prefix = newKey;
+        }
+        else if (
+            newKey.Length > oldKey.Length
+            && newKey.EndsWith(
+                JsonFormsScope.JoinKey(string.Empty, oldKey),
+                StringComparison.Ordinal
+            )
+        )
+        {
+            prefix = newKey[..(newKey.Length - oldKey.Length - 1)];
+        }
+        else
+        {
+            // Not a container rebase (e.g. a plain rename): leave the scopes untouched.
+            return rules;
+        }
+
+        if (prefix.Length == 0)
+        {
+            return rules;
+        }
+
+        List<JsonFormsRule> rebased = new(rules.Count);
+        foreach (JsonFormsRule rule in rules)
+        {
+            rebased.Add(RebaseRuleScope(rule, prefix));
+        }
+
+        return rebased;
+    }
+
+    private static JsonFormsRule RebaseRuleScope(JsonFormsRule rule, string prefix)
+    {
+        string? key = JsonFormsScope.ToKey(rule.Condition.Scope);
+        if (key is null)
+        {
+            return rule;
+        }
+
+        return new JsonFormsRule
+        {
+            Effect = rule.Effect,
+            Condition = new RuleCondition
+            {
+                Scope = JsonFormsScope.ToScope(JsonFormsScope.JoinKey(prefix, key)),
+                Schema = rule.Condition.Schema?.DeepClone(),
+            },
+        };
+    }
 
     /// <summary>
     /// Returns a copy of this definition with a different set of <see cref="Rules"/>, preserving

@@ -22,9 +22,6 @@
     [Inject]
     private IJsonFormsRuleEvaluator RuleEvaluator { get; set; } = default!;
 
-    [Inject]
-    private EditingSession Session { get; set; } = default!;
-
     private FieldDefinition? _field;
     private bool _visible = true;
     private bool _enabled = true;
@@ -32,10 +29,13 @@
     protected override void OnParametersSet()
     {
         _field = ResolveField();
-        (_visible, bool ruleEnabled) = EvaluateRules();
-
-        bool programmaticEnabled = _field is null || Session.IsFieldEnabled(_field.Key);
-        _enabled = ruleEnabled && programmaticEnabled;
+        // Only the layout-level Element.Rule is handled here. A field's own rules, programmatic
+        // enable state, and read-only flag are resolved by FieldRenderer, so they apply to every
+        // field including those rendered directly inside a map/array/oneof entry.
+        (_visible, _enabled) =
+            Element.Rule is null
+                ? (true, true)
+                : RuleEvaluation.Resolve([Element.Rule], RuleEvaluator, Document);
     }
 
     private FieldDefinition? ResolveField()
@@ -44,34 +44,4 @@
         return key is not null && Schema.Fields.TryGetValue(key, out FieldDefinition? field) ? field : null;
     }
 
-    private (bool Visible, bool Enabled) EvaluateRules()
-    {
-        bool visible = true;
-        bool enabled = !(_field?.ReadOnly ?? false);
-
-        if (Element.Rule is not null)
-        {
-            (visible, enabled) = Apply(Element.Rule, visible, enabled);
-        }
-
-        if (_field is not null)
-        {
-            foreach (JsonFormsRule rule in _field.Rules)
-            {
-                (visible, enabled) = Apply(rule, visible, enabled);
-            }
-        }
-
-        return (visible, enabled);
-    }
-
-    private (bool Visible, bool Enabled) Apply(JsonFormsRule rule, bool visible, bool enabled) =>
-        RuleEvaluator.Evaluate(rule, Document) switch
-        {
-            RuleEffect.Hide => (false, enabled),
-            RuleEffect.Show => (true, enabled),
-            RuleEffect.Disable => (visible, false),
-            RuleEffect.Enable => (visible, true),
-            _ => (visible, enabled),
-        };
 }
