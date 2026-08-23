@@ -431,6 +431,98 @@ public sealed class ConfigForgeShellTests : BunitContext
         Assert.Contains("This field is required", cut.Markup, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ConfigForgeShell_DiscardAfterSave_KeepsSavedData()
+    {
+        IJsonFormsSchemaParser parser = Services.GetRequiredService<IJsonFormsSchemaParser>();
+        ConfigSchema schema = parser.Parse(CollectionSchema);
+
+        int saved = 0;
+        IRenderedComponent<ConfigForgeShell> cut = Render<ConfigForgeShell>(parameters =>
+            parameters
+                .Add(p => p.Schema, schema)
+                .Add(
+                    p => p.OnSave,
+                    EventCallback.Factory.Create<ConfigDocument>(this, () => saved++)
+                )
+        );
+
+        cut.Find(".cf-collection-add").Click();
+        cut.Find("#cf-add-name").Input("Saved Shop");
+        cut.Find(".cf-modal .cf-button-primary").Click();
+        cut.Find(".cf-save-bar .cf-button-primary").Click();
+        Assert.Equal(1, saved);
+
+        EditingSession session = Services.GetRequiredService<EditingSession>();
+        string guid = ((IDictionary<string, object?>)session.Document["shops"]!).Keys.First();
+        session.SetFieldValue($"shops/{guid}/name", "Edited");
+
+        cut.FindAll(".cf-save-bar button")
+            .Single(b => b.TextContent.Contains("Discard", StringComparison.Ordinal))
+            .Click();
+        cut.Find(".cf-modal .cf-button-danger").Click();
+
+        // Discard reverts to the saved state, not the page-load snapshot: the shop must survive.
+        IDictionary<string, object?> shops =
+            (IDictionary<string, object?>)session.Document["shops"]!;
+        Assert.Single(shops.Keys);
+        Assert.Equal("Saved Shop", session.Document[$"shops/{guid}/name"]);
+    }
+
+    [Fact]
+    public void ConfigForgeShell_NewEntry_ShowsNoErrorsUntilTouchedOrSave()
+    {
+        IJsonFormsSchemaParser parser = Services.GetRequiredService<IJsonFormsSchemaParser>();
+        ConfigSchema schema = parser.Parse(RequiredEntrySchema);
+
+        IRenderedComponent<ConfigForgeShell> cut = Render<ConfigForgeShell>(parameters =>
+            parameters
+                .Add(p => p.Schema, schema)
+                .Add(p => p.OnSave, EventCallback.Factory.Create<ConfigDocument>(this, () => { }))
+        );
+
+        cut.Find(".cf-collection-add").Click();
+        cut.Find(".cf-modal .cf-button-primary").Click();
+
+        // A freshly added shop must not flag errors the user could not yet have caused.
+        Assert.DoesNotContain("This field is required", cut.Markup, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "This configuration is not valid",
+            cut.Markup,
+            StringComparison.Ordinal
+        );
+        Assert.False(cut.Find(".cf-save-bar .cf-button-primary").HasAttribute("disabled"));
+    }
+
+    [Fact]
+    public void ConfigForgeShell_SaveThenFix_RevealsThenClearsError()
+    {
+        IJsonFormsSchemaParser parser = Services.GetRequiredService<IJsonFormsSchemaParser>();
+        ConfigSchema schema = parser.Parse(RequiredEntrySchema);
+
+        IRenderedComponent<ConfigForgeShell> cut = Render<ConfigForgeShell>(parameters =>
+            parameters
+                .Add(p => p.Schema, schema)
+                .Add(p => p.OnSave, EventCallback.Factory.Create<ConfigDocument>(this, () => { }))
+        );
+
+        cut.Find(".cf-collection-add").Click();
+        cut.Find(".cf-modal .cf-button-primary").Click();
+
+        // Pressing save reveals what is missing and disables the button.
+        cut.Find(".cf-save-bar .cf-button-primary").Click();
+        Assert.Contains("This field is required", cut.Markup, StringComparison.Ordinal);
+        Assert.True(cut.Find(".cf-save-bar .cf-button-primary").HasAttribute("disabled"));
+
+        // Filling it clears the error live and re-enables save.
+        EditingSession session = Services.GetRequiredService<EditingSession>();
+        string guid = ((IDictionary<string, object?>)session.Document["shops"]!).Keys.First();
+        session.SetFieldValue($"shops/{guid}/syncChannels", new List<object?> { "channel" });
+
+        Assert.DoesNotContain("This field is required", cut.Markup, StringComparison.Ordinal);
+        Assert.False(cut.Find(".cf-save-bar .cf-button-primary").HasAttribute("disabled"));
+    }
+
     private const string HiddenFieldSchema = """
         {
           "schema": {

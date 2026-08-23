@@ -18,6 +18,15 @@ public interface IConfigDocumentEngine
     /// <returns>The parse result.</returns>
     ConfigDocumentParseResult Parse(string json, ConfigSchema schema);
 
+    /// <summary>
+    /// Validates an already-parsed document against a schema in place (no JSON round-trip),
+    /// so the UI can refresh validation state live on every edit.
+    /// </summary>
+    /// <param name="document">The live document.</param>
+    /// <param name="schema">The schema to validate against.</param>
+    /// <returns>The validation result over the same document.</returns>
+    ConfigDocumentParseResult Validate(ConfigDocument document, ConfigSchema schema);
+
     /// <summary>Serializes a document to indented JSON.</summary>
     /// <param name="document">The document to serialize.</param>
     /// <returns>The indented JSON representation.</returns>

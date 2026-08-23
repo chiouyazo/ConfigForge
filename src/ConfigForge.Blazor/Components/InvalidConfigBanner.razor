@@ -1,3 +1,5 @@
+@using ConfigForge.Blazor.Services
+
 @if (HasProblems)
 {
     <div class="cf-banner cf-banner-danger" role="alert">
@@ -6,24 +8,24 @@
         {
             <p class="cf-banner-line">The document could not be parsed: @ParseResult.JsonError</p>
         }
-        @if (ParseResult.MissingRequiredKeys.Count > 0)
+        @if (VisibleMissing.Count > 0)
         {
             <div class="cf-banner-section">
                 <span>Missing required fields:</span>
                 <ul>
-                    @foreach (string key in ParseResult.MissingRequiredKeys)
+                    @foreach (string key in VisibleMissing)
                     {
                         <li>@key</li>
                     }
                 </ul>
             </div>
         }
-        @if (ParseResult.InvalidValues.Count > 0)
+        @if (VisibleInvalid.Count > 0)
         {
             <div class="cf-banner-section">
                 <span>Invalid values:</span>
                 <ul>
-                    @foreach (ValidationError error in ParseResult.InvalidValues)
+                    @foreach (ValidationError error in VisibleInvalid)
                     {
                         <li><code>@error.Key</code>: @error.Message</li>
                     }
@@ -38,9 +40,22 @@
     [Parameter]
     public ConfigDocumentParseResult? ParseResult { get; set; }
 
+    [Inject]
+    private EditingSession Session { get; set; } = default!;
+
+    private IReadOnlyList<string> VisibleMissing =>
+        ParseResult is null
+            ? []
+            : [.. ParseResult.MissingRequiredKeys.Where(Session.ShouldShowError)];
+
+    private IReadOnlyList<ValidationError> VisibleInvalid =>
+        ParseResult is null
+            ? []
+            : [.. ParseResult.InvalidValues.Where(e => Session.ShouldShowError(e.Key))];
+
     private bool HasProblems =>
         ParseResult is not null
         && (!string.IsNullOrEmpty(ParseResult.JsonError)
-            || ParseResult.MissingRequiredKeys.Count > 0
-            || ParseResult.InvalidValues.Count > 0);
+            || VisibleMissing.Count > 0
+            || VisibleInvalid.Count > 0);
 }

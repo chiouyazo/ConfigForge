@@ -15,6 +15,7 @@ public sealed class EditingSession : IDisposable
 {
     private readonly IDirtyStateTracker _dirtyTracker;
     private readonly IPluginCatalog _pluginCatalog;
+    private readonly IConfigDocumentEngine _engine;
     private readonly Dictionary<string, IReadOnlyList<SelectOption>> _fieldOptions = new(
         StringComparer.Ordinal
     );
@@ -23,20 +24,30 @@ public sealed class EditingSession : IDisposable
 
     private readonly Dictionary<string, string?> _fieldErrors = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _selectedEntries = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _touchedKeys = new(StringComparer.Ordinal);
     private readonly List<ToastMessage> _toasts = [];
 
+    private bool _saveAttempted;
+    private ConfigDocument _discardBaseline = new();
     private CancellationTokenSource _categoryCts = new();
     private bool _disposed;
 
     /// <summary>Creates a session backed by the supplied dirty-state tracker.</summary>
     /// <param name="dirtyTracker">The dirty-state tracker for this session.</param>
     /// <param name="pluginCatalog">The plugin catalog used to resolve field validators.</param>
-    public EditingSession(IDirtyStateTracker dirtyTracker, IPluginCatalog pluginCatalog)
+    /// <param name="engine">The document engine used to revalidate the document live on edits.</param>
+    public EditingSession(
+        IDirtyStateTracker dirtyTracker,
+        IPluginCatalog pluginCatalog,
+        IConfigDocumentEngine engine
+    )
     {
         ArgumentNullException.ThrowIfNull(dirtyTracker);
         ArgumentNullException.ThrowIfNull(pluginCatalog);
+        ArgumentNullException.ThrowIfNull(engine);
         _dirtyTracker = dirtyTracker;
         _pluginCatalog = pluginCatalog;
+        _engine = engine;
         _dirtyTracker.DirtyStateChanged += OnDirtyStateChanged;
     }
 
@@ -99,6 +110,7 @@ public sealed class EditingSession : IDisposable
 
         Schema = schema;
         Document = document;
+        _discardBaseline = document.Clone();
         ParseResult = parseResult;
         RawJson = rawJson;
         ActiveCategoryIndex = 0;
@@ -108,6 +120,8 @@ public sealed class EditingSession : IDisposable
         _fieldEnabled.Clear();
         _fieldErrors.Clear();
         _selectedEntries.Clear();
+        _touchedKeys.Clear();
+        _saveAttempted = false;
 
         RefreshIgnoredKeys();
         _dirtyTracker.Snapshot(document);
@@ -146,6 +160,47 @@ public sealed class EditingSession : IDisposable
             );
         }
     }
+
+    /// <summary>
+    /// Recomputes the validation state against the live document, so the save button, banner, and
+    /// summary reflect edits immediately (and a fixed field clears its error without a save round).
+    /// </summary>
+    public void Revalidate()
+    {
+        RecomputeValidation();
+        RaiseStateChanged();
+    }
+
+    private void RecomputeValidation()
+    {
+        if (Schema is { } schema)
+        {
+            ParseResult = _engine.Validate(Document, schema);
+        }
+    }
+
+    /// <summary>Records that the user attempted a save, from which point every error is shown.</summary>
+    public void MarkSaveAttempted()
+    {
+        _saveAttempted = true;
+        RaiseStateChanged();
+    }
+
+    /// <summary>
+    /// Whether a validation error for a field should be shown yet. Validation runs live, but a
+    /// freshly created entry has not been touched, so its errors stay hidden until the user edits
+    /// the field or presses save. Avoids flagging a new shop red before the user did anything.
+    /// </summary>
+    public bool ShouldShowError(string key) => _saveAttempted || _touchedKeys.Contains(key);
+
+    /// <summary>True when any currently-showable validation error exists (drives the save bar).</summary>
+    public bool HasVisibleErrors =>
+        ParseResult is { } result
+        && (
+            result.JsonError is not null
+            || result.MissingRequiredKeys.Any(ShouldShowError)
+            || result.InvalidValues.Any(e => ShouldShowError(e.Key))
+        );
 
     /// <summary>Updates the retained raw JSON, e.g. after a re-parse from the editor.</summary>
     /// <param name="rawJson">The raw JSON text.</param>
@@ -261,9 +316,11 @@ public sealed class EditingSession : IDisposable
         ArgumentNullException.ThrowIfNull(key);
 
         Document[key] = value;
+        _touchedKeys.Add(key);
         RunFieldValidator(key, value);
         RefreshIgnoredKeys();
         _dirtyTracker.Update(Document);
+        RecomputeValidation();
         RaiseStateChanged();
     }
 
@@ -286,7 +343,7 @@ public sealed class EditingSession : IDisposable
             return validatorMessage;
         }
 
-        if (ParseResult is { } result)
+        if (ParseResult is { } result && ShouldShowError(key))
         {
             if (result.MissingRequiredKeys.Contains(key, StringComparer.Ordinal))
             {
@@ -406,9 +463,30 @@ public sealed class EditingSession : IDisposable
     /// </summary>
     public void AcceptAsSaved()
     {
+        _discardBaseline = Document.Clone();
+        _touchedKeys.Clear();
+        _saveAttempted = false;
         RefreshIgnoredKeys();
         _dirtyTracker.Snapshot(Document);
         _dirtyTracker.Update(Document);
+        RaiseStateChanged();
+    }
+
+    /// <summary>
+    /// Reverts to the last clean baseline: the state at load, or after the most recent successful
+    /// save. Discarding must not time-travel past a save (the parameter passed at page load is a
+    /// stale snapshot), so the baseline is owned here, not read back from the host.
+    /// </summary>
+    public void Discard()
+    {
+        Document = _discardBaseline.Clone();
+        _fieldErrors.Clear();
+        _touchedKeys.Clear();
+        _saveAttempted = false;
+        RefreshIgnoredKeys();
+        _dirtyTracker.Snapshot(Document);
+        _dirtyTracker.Update(Document);
+        RecomputeValidation();
         RaiseStateChanged();
     }
 

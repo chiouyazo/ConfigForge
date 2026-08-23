@@ -27,6 +27,7 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
     private string? _addEntryVariant;
     private string _addEntryName = string.Empty;
     private CollectionEntryRef? _removeEntryRef;
+    private bool _showDiscardConfirm;
 
     private enum CodeView
     {
@@ -133,7 +134,7 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
     private string? HeaderSubtitle =>
         string.IsNullOrEmpty(Schema.Version) ? null : $"v{Schema.Version}";
 
-    private bool IsValid => Session.ParseResult?.IsValid ?? true;
+    private bool IsValid => !Session.HasVisibleErrors;
 
     /// <inheritdoc />
     protected override void OnInitialized() => Session.StateChanged += OnSessionChanged;
@@ -430,11 +431,11 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
 
     private async Task SaveAsync()
     {
-        ConfigDocumentParseResult check = Engine.Parse(Engine.Serialize(Session.Document), Schema);
-        if (!check.IsValid)
+        Session.MarkSaveAttempted();
+        Session.Revalidate();
+        if (Session.ParseResult is { IsValid: false } invalid)
         {
-            Session.ReplaceDocument(check.Document, check);
-            NavigateToFirstProblem(check);
+            NavigateToFirstProblem(invalid);
             Session.EnqueueToast(
                 "Please fix the highlighted required fields before saving.",
                 ToastSeverity.Warning
@@ -493,11 +494,14 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
         }
     }
 
-    private void Discard()
+    private void RequestDiscard() => _showDiscardConfirm = true;
+
+    private void CancelDiscard() => _showDiscardConfirm = false;
+
+    private void ConfirmDiscard()
     {
-        ConfigDocument document = Document?.Clone() ?? new ConfigDocument();
-        Session.ReplaceDocument(document, ParseResult);
-        Session.AcceptAsSaved();
+        _showDiscardConfirm = false;
+        Session.Discard();
     }
 
     private Task OnGenerateConfirmedAsync(GenerateDocumentDialog.GenerationMode mode)

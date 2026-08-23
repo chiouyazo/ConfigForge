@@ -79,28 +79,34 @@ public sealed partial class ConfigDocumentEngine : IConfigDocumentEngine
                 : JsonValueHelper.FromElement(member.Value.Deserialize<JsonElement>());
         }
 
+        ConfigDocumentParseResult result = Validate(document, schema);
+        LogConfigLoaded(
+            schema.Id,
+            result.IsValid,
+            result.UnknownKeys.Count,
+            result.MissingRequiredKeys.Count
+        );
+        return result;
+    }
+
+    /// <inheritdoc />
+    public ConfigDocumentParseResult Validate(ConfigDocument document, ConfigSchema schema)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(schema);
+
         HashSet<string> knownTopLevel = new(
             schema.Fields.Keys.Select(TopLevelSegment),
             StringComparer.Ordinal
         );
-        List<string> unknownKeys = [.. document.Keys.Where(k => !knownTopLevel.Contains(k))];
 
-        // Recursive: a required field inside a map entry or oneof variant (e.g.
-        // shops/<guid>/syncChannels) is invisible to the flat top-level field list.
-        IReadOnlyList<string> missingRequired = SchemaWalker.MissingRequiredKeys(schema, document);
-
-        List<ValidationError> invalidValues = ValidateValues(document, schema);
-
-        var result = new ConfigDocumentParseResult
+        return new ConfigDocumentParseResult
         {
             Document = document,
-            UnknownKeys = unknownKeys,
-            MissingRequiredKeys = missingRequired,
-            InvalidValues = invalidValues,
+            UnknownKeys = [.. document.Keys.Where(k => !knownTopLevel.Contains(k))],
+            MissingRequiredKeys = SchemaWalker.MissingRequiredKeys(schema, document),
+            InvalidValues = ValidateValues(document, schema),
         };
-
-        LogConfigLoaded(schema.Id, result.IsValid, unknownKeys.Count, missingRequired.Count);
-        return result;
     }
 
     /// <inheritdoc />
