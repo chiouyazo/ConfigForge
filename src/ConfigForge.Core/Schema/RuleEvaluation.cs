@@ -55,7 +55,7 @@ public static class RuleEvaluation
 
     /// <summary>
     /// Resolves rules whose condition scopes are relative to a container (e.g. a map/oneof entry),
-    /// rebasing each scope by <paramref name="scopePrefix"/> (a key like <c>shops/{guid}</c>) before
+    /// rebasing each scope by <paramref name="scopePrefix"/> (a key like <c>connectors/{guid}</c>) before
     /// evaluating. Used to gate a section/sub-tab inside an entry against a field within that entry.
     /// </summary>
     public static (bool Visible, bool Enabled) Resolve(

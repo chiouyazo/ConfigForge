@@ -84,7 +84,7 @@ public sealed class RemoteSchemaPoller : IHostedService, IDisposable
         }
 
         // Load once before returning so schemas are available as the app starts.
-        await PollAsync(cancellationToken).ConfigureAwait(false);
+        await PollAsync(cancellationToken);
 
         _cts = new CancellationTokenSource();
         _loop = RunAsync(_cts.Token);
@@ -98,12 +98,12 @@ public sealed class RemoteSchemaPoller : IHostedService, IDisposable
             return;
         }
 
-        await _cts.CancelAsync().ConfigureAwait(false);
+        await _cts.CancelAsync();
         if (_loop is not null)
         {
             try
             {
-                await _loop.ConfigureAwait(false);
+                await _loop;
             }
             catch (OperationCanceledException)
             {
@@ -131,9 +131,9 @@ public sealed class RemoteSchemaPoller : IHostedService, IDisposable
 
         try
         {
-            while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
+            while (await timer.WaitForNextTickAsync(cancellationToken))
             {
-                await PollAsync(cancellationToken).ConfigureAwait(false);
+                await PollAsync(cancellationToken);
             }
         }
         catch (OperationCanceledException)
@@ -151,9 +151,7 @@ public sealed class RemoteSchemaPoller : IHostedService, IDisposable
         try
         {
             var manifestUri = new Uri(manifestUrl);
-            string manifestJson = await client
-                .GetStringAsync(manifestUri, cancellationToken)
-                .ConfigureAwait(false);
+            string manifestJson = await client.GetStringAsync(manifestUri, cancellationToken);
             entries = ParseManifest(manifestJson, manifestUri);
         }
         catch (Exception ex)
@@ -166,8 +164,7 @@ public sealed class RemoteSchemaPoller : IHostedService, IDisposable
         var loadedIds = new HashSet<string>(StringComparer.Ordinal);
         foreach (ManifestEntry entry in entries)
         {
-            string? id = await LoadSchemaAsync(client, entry, cancellationToken)
-                .ConfigureAwait(false);
+            string? id = await LoadSchemaAsync(client, entry, cancellationToken);
             if (id is not null)
             {
                 loadedIds.Add(id);
@@ -192,9 +189,7 @@ public sealed class RemoteSchemaPoller : IHostedService, IDisposable
     {
         try
         {
-            string json = await client
-                .GetStringAsync(entry.Url, cancellationToken)
-                .ConfigureAwait(false);
+            string json = await client.GetStringAsync(entry.Url, cancellationToken);
             ConfigSchema schema = _parser.Parse(json);
             _state.UpsertSchema(schema);
             return schema.Id;

@@ -54,9 +54,20 @@
     private FieldDefinition RebaseChild(FieldDefinition child) =>
         child.WithKey($"{Field.Key}/{child.Key}");
 
-    private void Toggle(bool enable) =>
-        Session.SetFieldValue(
-            Field.Key,
-            enable ? new Dictionary<string, object?>(StringComparer.Ordinal) : null
-        );
+    private void Toggle(bool enable)
+    {
+        // Off removes the key rather than storing null: "not set" and "absent" are the same thing,
+        // and a stored null would fail the field's own object-type validation.
+        if (enable)
+        {
+            Session.SetFieldValue(
+                Field.Key,
+                new Dictionary<string, object?>(StringComparer.Ordinal)
+            );
+        }
+        else
+        {
+            Session.RemoveFieldValue(Field.Key);
+        }
+    }
 }

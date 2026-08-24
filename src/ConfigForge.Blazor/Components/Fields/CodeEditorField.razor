@@ -1,16 +1,50 @@
 @inherits FieldComponentBase
+@using System.Text.Json
+@using ConfigForge.Core.Documents
 
-<div class="cf-field">
+<div class="cf-field @(_parseError is null ? string.Empty : "cf-field-has-error")">
     <FieldLabel Control="Control" />
     <textarea class="cf-input cf-code"
               rows="10"
               spellcheck="false"
               placeholder="@Control.Placeholder"
               disabled="@(Disabled || Control.ReadOnly)"
-              @onchange="OnInputAsync">@CurrentString</textarea>
+              @onchange="OnInputAsync">@DisplayValue</textarea>
+    @if (_parseError is not null)
+    {
+        <p class="cf-field-error" role="alert">@_parseError</p>
+    }
     <FieldDescription Control="Control" />
 </div>
 
 @code {
-    private Task OnInputAsync(ChangeEventArgs e) => NotifyChangedAsync(e.Value as string);
+    private string? _parseError;
+
+    // The code control edits JSON: object/array values would otherwise render their CLR type name.
+    private string DisplayValue =>
+        CurrentValue is null ? string.Empty : ConfigValueJson.Serialize(CurrentValue);
+
+    private async Task OnInputAsync(ChangeEventArgs e)
+    {
+        string text = e.Value as string ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            _parseError = null;
+            await NotifyChangedAsync(null);
+            return;
+        }
+
+        try
+        {
+            object? value = ConfigValueJson.Parse(text);
+            _parseError = null;
+            await NotifyChangedAsync(value);
+        }
+        catch (JsonException ex)
+        {
+            // Surface as a field error instead of writing a string into a typed field, which would
+            // only fail later as a deserialization error at the consumer.
+            _parseError = $"Invalid JSON: {ex.Message}";
+        }
+    }
 }

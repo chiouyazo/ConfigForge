@@ -118,7 +118,8 @@ Per-category metadata, keyed by category label:
 | `description` | Intro text shown at the top of the category. |
 | `collection` | Turns the category into a **master/detail** view over the named `map` field (see below). |
 | `collectionLabel` | For a collection category, the entry sub-key whose value labels each entry in the sidebar (e.g. `name`). Falls back to the entry key. |
-| `collectionAddLabel` | For a collection category, the label of the "add" button (e.g. `Add shop`). |
+| `collectionAddLabel` | For a collection category, the label of the "add" button (e.g. `Add connector`). |
+| `collectionEntryStatus` | For a collection category, a boolean entry sub-key (e.g. `active`). When set, each entry shows a status dot and inactive entries are dimmed in the sidebar. |
 
 #### Collection categories (master/detail in the sidebar)
 
@@ -130,13 +131,16 @@ A category that holds a single `map` field can render as **master/detail** inste
     "Connectors": {
       "collection": "connectors",
       "collectionLabel": "name",
-      "collectionAddLabel": "Add connector"
+      "collectionAddLabel": "Add connector",
+      "collectionEntryStatus": "active"
     }
   }
 }
 ```
 
-Here `connectors` is a keyed `map` (typically `additionalProperties` = an `oneof`, so each entry is a typed connector). Adding an entry prompts for the type (the `oneof` variant) and a name; the name is written to the `collectionLabel` field so the entry is identifiable immediately. Removing asks for confirmation and takes effect on save. This is well suited to a list of shops, tenants, environments, or connectors — anything you'd otherwise cram into one long page.
+Here `connectors` is a keyed `map` (typically `additionalProperties` = an `oneof`, so each entry is a typed connector). Adding an entry prompts for the type (the `oneof` variant) and its label. When `collectionLabel` points at a real entry field, the add dialog renders that field with its own control (a dropdown, a loader-backed select, an enum, or a plain text box) rather than a generic name box, so the value is constrained the same way it is in the form; the new entry is written only when you confirm (cancelling leaves the document untouched). Removing asks for confirmation and takes effect on save. With `collectionEntryStatus` set to a boolean sub-key, each entry also shows a status dot and inactive entries are dimmed, so on/off state is visible without opening each one. This is well suited to a list of tenants, environments, or connectors, anything you'd otherwise cram into one long page.
+
+When generating from CLR types, the whole block above is produced by `[CfCollection]` on the map property (see [generation.md](generation.md)); you rarely write it by hand.
 
 ## Control types
 

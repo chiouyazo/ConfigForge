@@ -44,7 +44,7 @@
                                     disabled="@(!enabled)"
                                     title="@(enabled ? null : "Locked")"
                                     class="cf-tab @(s == activeSection ? "cf-active" : string.Empty) @(enabled ? string.Empty : "cf-disabled")"
-                                    @onclick="@(() => _activeSection = s)">
+                                    @onclick="@(() => Session.SetSelectedSection(Field.Key, s))">
                                 @s
                             </button>
                         }
@@ -90,7 +90,9 @@
     [Inject]
     private IJsonFormsRuleEvaluator RuleEvaluator { get; set; } = default!;
 
-    private string? _activeSection;
+    // The active sub-tab lives in the session (keyed by this oneof's field key) so that
+    // section-scoped actions in the ActionButtonBar can see which sub-tab is showing.
+    private string? ActiveSectionState => Session.GetSelectedSection(Field.Key);
 
     private (bool Visible, bool Enabled) SectionState(OneOfVariant variant, string section) =>
         variant.SectionRules.TryGetValue(section, out IReadOnlyList<JsonFormsRule>? rules)
@@ -104,12 +106,12 @@
     private string? UsableActiveSection(OneOfVariant variant, List<string> visibleSections)
     {
         if (
-            _activeSection is not null
-            && visibleSections.Contains(_activeSection)
-            && SectionState(variant, _activeSection).Enabled
+            ActiveSectionState is { } current
+            && visibleSections.Contains(current)
+            && SectionState(variant, current).Enabled
         )
         {
-            return _activeSection;
+            return current;
         }
 
         return visibleSections.FirstOrDefault(s => SectionState(variant, s).Enabled);
@@ -117,10 +119,21 @@
 
     protected override void OnParametersSet()
     {
-        // A freshly added entry has no discriminator yet, so the dropdown only *shows* the first
-        // variant without it being stored. Persist that default so the value is always a valid
-        // variant (otherwise saving fails: "must specify a type discriminator").
-        if (Disabled || Field.DiscriminatorKey is null)
+        if (Disabled)
+        {
+            return;
+        }
+
+        EnsureDiscriminator();
+        EnsureSelectedSection();
+    }
+
+    // A freshly added entry has no discriminator yet, so the dropdown only *shows* the first
+    // variant without it being stored. Persist that default so the value is always a valid
+    // variant (otherwise saving fails: "must specify a type discriminator").
+    private void EnsureDiscriminator()
+    {
+        if (Field.DiscriminatorKey is null || Field.OneOfVariants.Count == 0)
         {
             return;
         }
@@ -132,7 +145,7 @@
             && current.TryGetValue(Field.DiscriminatorKey, out object? raw)
             && raw is string existing
             && existing.Length > 0;
-        if (hasDiscriminator || Field.OneOfVariants.Count == 0)
+        if (hasDiscriminator)
         {
             return;
         }
@@ -143,6 +156,32 @@
                 : new Dictionary<string, object?>(StringComparer.Ordinal);
         obj[Field.DiscriminatorKey] = Field.OneOfVariants[0].DiscriminatorValue;
         Session.SetFieldValue(Field.Key, obj);
+    }
+
+    // Persist the resolved default sub-tab so the session is the single source of truth for which
+    // section is showing. Without this, section-scoped actions stay hidden on the first tab until
+    // the user clicks another tab, since GetSelectedSection is null until the first explicit click.
+    private void EnsureSelectedSection()
+    {
+        if (ActiveVariant is not { } active)
+        {
+            return;
+        }
+
+        List<string> visible = VisibleSections(active);
+        if (UsableActiveSection(active, visible) is not { } resolved)
+        {
+            return;
+        }
+
+        string? stored = Session.GetSelectedSection(Field.Key);
+        if (
+            !string.Equals(stored, resolved, StringComparison.Ordinal)
+            && (stored is null || !visible.Contains(stored))
+        )
+        {
+            Session.SetSelectedSection(Field.Key, resolved);
+        }
     }
 
     private static List<string> Sections(OneOfVariant? variant) =>

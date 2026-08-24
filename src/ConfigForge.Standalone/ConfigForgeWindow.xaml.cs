@@ -104,7 +104,7 @@ public sealed partial class ConfigForgeWindow : Window
         string pluginDir = Path.Combine(AppContext.BaseDirectory, "plugins");
         Log.Information("Loading external plugins from trusted path {PluginDir}", pluginDir);
 
-        loader.LoadFromDirectoryAsync(pluginDir).GetAwaiter().GetResult();
+        loader.LoadFromDirectory(pluginDir);
 
         return provider;
     }

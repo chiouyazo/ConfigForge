@@ -55,11 +55,17 @@
                             string key = entryKey;
                             bool active = index == ActiveIndex
                                 && string.Equals(Session.GetSelectedEntry(collectionKey), key, StringComparison.Ordinal);
-                            <li class="cf-collection-item @(active ? "cf-active" : string.Empty)">
+                            <li class="cf-collection-item @(active ? "cf-active" : string.Empty) @(EntryInactive(category, collectionKey, key) ? "cf-inactive" : string.Empty)">
                                 <button type="button"
                                         class="cf-collection-select"
                                         @onclick="@(() => OnSelectEntry.InvokeAsync(new CollectionEntryRef(index, key)))">
-                                    @EntryLabel(category, collectionKey, key)
+                                    @if (category.CollectionEntryStatusKey is { Length: > 0 })
+                                    {
+                                        <span class="cf-collection-status @(EntryInactive(category, collectionKey, key) ? "cf-off" : "cf-on")"
+                                              title="@(EntryInactive(category, collectionKey, key) ? "Inactive" : "Active")"
+                                              aria-hidden="true"></span>
+                                    }
+                                    <span class="cf-collection-entry-label">@EntryLabel(category, collectionKey, key)</span>
                                 </button>
                                 <button type="button"
                                         class="cf-collection-remove"
@@ -162,4 +168,8 @@
         // A generated (uuid) entry key is not meaningful to show; only a real string key is.
         return category.CollectionEntryLabelKey is { Length: > 0 } ? "(unnamed)" : entryKey;
     }
+
+    private bool EntryInactive(CategoryElement category, string collectionKey, string entryKey) =>
+        category.CollectionEntryStatusKey is { Length: > 0 } statusKey
+        && Session.Document[$"{collectionKey}/{entryKey}/{statusKey}"] is not true;
 }

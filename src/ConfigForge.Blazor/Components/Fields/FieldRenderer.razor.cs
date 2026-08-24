@@ -124,7 +124,7 @@ public sealed partial class FieldRenderer : ComponentBase, IDisposable
         )
         {
             _loadedFor = loaderId;
-            await LoadOptionsAsync(loaderId).ConfigureAwait(false);
+            await LoadOptionsAsync(loaderId);
         }
     }
 
@@ -143,9 +143,10 @@ public sealed partial class FieldRenderer : ComponentBase, IDisposable
         try
         {
             ActionContext context = new(Session, Services, Field.Key);
-            IReadOnlyList<SelectOption> options = await Dispatcher
-                .DispatchLoaderAsync(loaderId, context)
-                .ConfigureAwait(false);
+            IReadOnlyList<SelectOption> options = await Dispatcher.DispatchLoaderAsync(
+                loaderId,
+                context
+            );
             Session.SetFieldOptions(Field.Key, options);
         }
         finally

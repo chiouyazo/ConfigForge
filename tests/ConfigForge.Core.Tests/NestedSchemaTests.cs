@@ -21,7 +21,7 @@ public sealed class NestedSchemaTests
               }
             },
             "properties": {
-              "ExchangeLock": {
+              "Nested": {
                 "type": "object",
                 "properties": {
                   "ConnectionString": { "type": "string" },
@@ -62,17 +62,17 @@ public sealed class NestedSchemaTests
     {
         ConfigSchema schema = Parse();
 
-        Assert.Contains("ExchangeLock/ConnectionString", schema.Fields.Keys);
-        Assert.Contains("ExchangeLock/Timeout", schema.Fields.Keys);
-        Assert.DoesNotContain("ExchangeLock", schema.Fields.Keys);
+        Assert.Contains("Nested/ConnectionString", schema.Fields.Keys);
+        Assert.Contains("Nested/Timeout", schema.Fields.Keys);
+        Assert.DoesNotContain("Nested", schema.Fields.Keys);
     }
 
     [Fact]
     public void Parse_CarriesRequiredFromNestedObject()
     {
         ConfigSchema schema = Parse();
-        Assert.True(schema.Fields["ExchangeLock/ConnectionString"].Required);
-        Assert.False(schema.Fields["ExchangeLock/Timeout"].Required);
+        Assert.True(schema.Fields["Nested/ConnectionString"].Required);
+        Assert.False(schema.Fields["Nested/Timeout"].Required);
     }
 
     [Fact]
@@ -110,11 +110,11 @@ public sealed class NestedSchemaTests
     public void Document_PathAccessReadsAndWritesNestedValues()
     {
         ConfigDocument document = new();
-        document["ExchangeLock/ConnectionString"] = "Server=db;";
+        document["Nested/ConnectionString"] = "Server=db;";
 
-        Assert.Equal("Server=db;", document["ExchangeLock/ConnectionString"]);
-        Assert.True(document["ExchangeLock"] is IDictionary<string, object?>);
-        Assert.True(document.ContainsKey("ExchangeLock/ConnectionString"));
+        Assert.Equal("Server=db;", document["Nested/ConnectionString"]);
+        Assert.True(document["Nested"] is IDictionary<string, object?>);
+        Assert.True(document.ContainsKey("Nested/ConnectionString"));
     }
 
     [Fact]
@@ -136,7 +136,7 @@ public sealed class NestedSchemaTests
         ConfigSchema schema = Parse();
         const string json = """
             {
-              "ExchangeLock": { "ConnectionString": "Server=db;", "Timeout": 30 },
+              "Nested": { "ConnectionString": "Server=db;", "Timeout": 30 },
               "Targets": [ { "Name": "otlp", "Headers": { "Authorization": "Bearer x" } } ]
             }
             """;
@@ -145,12 +145,12 @@ public sealed class NestedSchemaTests
         ConfigDocumentParseResult result = engine.Parse(json, schema);
 
         Assert.Empty(result.UnknownKeys);
-        Assert.Equal("Server=db;", result.Document["ExchangeLock/ConnectionString"]);
+        Assert.Equal("Server=db;", result.Document["Nested/ConnectionString"]);
         Assert.Equal("Bearer x", result.Document["Targets/0/Headers/Authorization"]);
 
         string serialized = engine.Serialize(result.Document);
         ConfigDocumentParseResult reparsed = engine.Parse(serialized, schema);
-        Assert.Equal("Server=db;", reparsed.Document["ExchangeLock/ConnectionString"]);
+        Assert.Equal("Server=db;", reparsed.Document["Nested/ConnectionString"]);
         Assert.Equal("Bearer x", reparsed.Document["Targets/0/Headers/Authorization"]);
     }
 
@@ -160,8 +160,8 @@ public sealed class NestedSchemaTests
         ConfigSchema schema = Parse();
         ConfigDocument document = new ConfigDocumentGenerator().GenerateExample(schema);
 
-        Assert.True(document["ExchangeLock"] is IDictionary<string, object?>);
-        Assert.NotNull(document["ExchangeLock/ConnectionString"]);
+        Assert.True(document["Nested"] is IDictionary<string, object?>);
+        Assert.NotNull(document["Nested/ConnectionString"]);
         Assert.True(document["Targets"] is IList<object?> list && list.Count > 0);
         Assert.True(document["Targets/0/Headers"] is IDictionary<string, object?>);
     }

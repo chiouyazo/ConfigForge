@@ -51,6 +51,8 @@
                           HeaderActions="State.Options.HeaderActions"
                           ActiveCategoryLabel="@_activeCategoryLabel"
                           OnCategoryChanged="OnCategoryChangedAsync"
+                          ActiveEntryKey="@_activeEntryKey"
+                          OnEntryChanged="OnEntryChangedAsync"
                           OnSave="OnSaveAsync" />
     }
     else
@@ -72,6 +74,7 @@
     private string? _schemaJson;
     private string? _loadError;
     private string? _activeCategoryLabel;
+    private string? _activeEntryKey;
 
     private int _loadGeneration;
     private DotNetObjectReference<ConfigForgePage>? _selfRef;
@@ -83,7 +86,7 @@
 
         if (_schemaChoices.Count >= 1)
         {
-            await SelectSchemaAsync(_schemaChoices[0]).ConfigureAwait(false);
+            await SelectSchemaAsync(_schemaChoices[0]);
         }
     }
 
@@ -95,12 +98,12 @@
         }
 
         _selfRef = DotNetObjectReference.Create(this);
-        await JS.InvokeVoidAsync("configForgeHost.onHashChange", _selfRef).ConfigureAwait(false);
+        await JS.InvokeVoidAsync("configForgeHost.onHashChange", _selfRef);
         _hashWired = true;
 
-        string slug = await JS.InvokeAsync<string>("configForgeHost.readHash").ConfigureAwait(false);
+        string slug = await JS.InvokeAsync<string>("configForgeHost.readHash");
 
-        await InvokeAsync(() => ApplyHashSlug(slug)).ConfigureAwait(false);
+        await InvokeAsync(() => ApplyHashSlug(slug));
     }
 
     /// <summary>Invoked from JS when the URL fragment changes (back/forward or manual edit).</summary>
@@ -114,13 +117,34 @@
             return;
         }
 
+        // The fragment is "<category-slug>" or "<category-slug>/<entry-key>".
+        string[] parts = slug.Split('/', 2);
         string? label = _schema
             .Categories.Select(c => c.Label)
-            .FirstOrDefault(l => string.Equals(Slugify(l), slug, StringComparison.OrdinalIgnoreCase));
+            .FirstOrDefault(l =>
+                string.Equals(Slugify(l), parts[0], StringComparison.OrdinalIgnoreCase)
+            );
+        if (label is null)
+        {
+            return;
+        }
 
-        if (label is not null && !string.Equals(label, _activeCategoryLabel, StringComparison.Ordinal))
+        string? entryKey = parts.Length > 1 ? Uri.UnescapeDataString(parts[1]) : null;
+        bool changed = false;
+        if (!string.Equals(label, _activeCategoryLabel, StringComparison.Ordinal))
         {
             _activeCategoryLabel = label;
+            changed = true;
+        }
+
+        if (!string.Equals(entryKey, _activeEntryKey, StringComparison.Ordinal))
+        {
+            _activeEntryKey = entryKey;
+            changed = true;
+        }
+
+        if (changed)
+        {
             StateHasChanged();
         }
     }
@@ -128,11 +152,38 @@
     private async Task OnCategoryChangedAsync(string label)
     {
         _activeCategoryLabel = label;
-        if (_hashWired)
-        {
-            await JS.InvokeVoidAsync("configForgeHost.writeHash", Slugify(label)).ConfigureAwait(false);
-        }
+        await WriteHashAsync();
     }
+
+    private async Task OnEntryChangedAsync(string? entryKey)
+    {
+        _activeEntryKey = entryKey;
+        await WriteHashAsync();
+    }
+
+    private async Task WriteHashAsync()
+    {
+        if (!_hashWired || _activeCategoryLabel is null)
+        {
+            return;
+        }
+
+        string hash = Slugify(_activeCategoryLabel);
+        if (_activeEntryKey is { Length: > 0 } entry && IsCollectionCategory(_activeCategoryLabel))
+        {
+            hash += "/" + Uri.EscapeDataString(entry);
+        }
+
+        await JS.InvokeVoidAsync("configForgeHost.writeHash", hash);
+    }
+
+    private bool IsCollectionCategory(string label) =>
+        _schema
+            ?.Categories.FirstOrDefault(c =>
+                string.Equals(c.Label, label, StringComparison.Ordinal)
+            )
+            ?.CollectionKey
+        is { Length: > 0 };
 
     private static string Slugify(string label)
     {
@@ -207,7 +258,7 @@
         SchemaChoice? choice = _schemaChoices.Find(c => c.Id == id);
         if (choice is not null)
         {
-            await SelectSchemaAsync(choice).ConfigureAwait(false);
+            await SelectSchemaAsync(choice);
         }
     }
 
@@ -230,7 +281,7 @@
             return;
         }
 
-        await SeedInitialDocumentAsync().ConfigureAwait(false);
+        await SeedInitialDocumentAsync();
         Bump();
     }
 
@@ -258,7 +309,7 @@
 
         if (State.Options.OnLoad is not null)
         {
-            string? persisted = await State.Options.OnLoad(_schema.Id).ConfigureAwait(false);
+            string? persisted = await State.Options.OnLoad(_schema.Id);
             if (persisted is not null)
             {
                 persisted = Secrets.RedactForEditor(_schema, persisted);
@@ -289,11 +340,11 @@
 
         if (Secrets.Enabled && State.Options.OnLoad is not null)
         {
-            string? stored = await State.Options.OnLoad(_schema.Id).ConfigureAwait(false);
+            string? stored = await State.Options.OnLoad(_schema.Id);
             payload = Secrets.MergeForStore(_schema, payload, stored);
         }
 
-        await State.Options.OnSave(_schema.Id, payload).ConfigureAwait(false);
+        await State.Options.OnSave(_schema.Id, payload);
     }
 
     private void Bump() => _loadGeneration++;

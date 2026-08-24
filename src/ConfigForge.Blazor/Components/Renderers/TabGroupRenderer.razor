@@ -1,3 +1,5 @@
+@using ConfigForge.Blazor.Services
+
 @if (Tabs.Count > 0)
 {
     <div class="cf-tabs">
@@ -7,15 +9,15 @@
                 int index = i;
                 <button type="button"
                         role="tab"
-                        aria-selected="@(index == _active ? "true" : "false")"
-                        class="cf-tab @(index == _active ? "cf-active" : string.Empty)"
-                        @onclick="@(() => _active = index)">
+                        aria-selected="@(index == ActiveIndex ? "true" : "false")"
+                        class="cf-tab @(index == ActiveIndex ? "cf-active" : string.Empty)"
+                        @onclick="@(() => Session.SetSelectedGroupTab(GroupKey, Tabs[index].Label ?? string.Empty))">
                     @Tabs[index].Label
                 </button>
             }
         </div>
         <div class="cf-tab-panel" role="tabpanel">
-            <CategoryRenderer Element="Tabs[_active]" Schema="Schema" Document="Document" />
+            <CategoryRenderer Element="Tabs[ActiveIndex]" Schema="Schema" Document="Document" />
         </div>
     </div>
 }
@@ -36,16 +38,47 @@
     [EditorRequired]
     public ConfigDocument Document { get; set; } = new();
 
-    private int _active;
+    [Inject]
+    private EditingSession Session { get; set; } = default!;
 
     private IReadOnlyList<UiElement> Tabs =>
         [.. Element.Elements.Where(e => string.Equals(e.Type, "Category", StringComparison.Ordinal))];
 
+    // The group is the active top-level category, so its label is the key under which the active
+    // sub-tab is recorded. A single source (the session) lets section-scoped actions match it.
+    private string GroupKey =>
+        Session.Schema is { } schema
+        && Session.ActiveCategoryIndex >= 0
+        && Session.ActiveCategoryIndex < schema.Categories.Count
+            ? schema.Categories[Session.ActiveCategoryIndex].Label
+            : string.Empty;
+
+    private int ActiveIndex
+    {
+        get
+        {
+            if (Session.GetSelectedGroupTab(GroupKey) is { } selected)
+            {
+                for (int i = 0; i < Tabs.Count; i++)
+                {
+                    if (string.Equals(Tabs[i].Label, selected, StringComparison.Ordinal))
+                    {
+                        return i;
+                    }
+                }
+            }
+
+            return 0;
+        }
+    }
+
     protected override void OnParametersSet()
     {
-        if (_active >= Tabs.Count)
+        // Persist the default sub-tab so a section-scoped action on the first tab shows without a
+        // click. No-ops when already recorded, so this does not loop.
+        if (Tabs.Count > 0)
         {
-            _active = 0;
+            Session.SetSelectedGroupTab(GroupKey, Tabs[ActiveIndex].Label ?? string.Empty);
         }
     }
 }

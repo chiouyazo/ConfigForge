@@ -7,7 +7,7 @@ namespace ConfigForge.Abstractions.Annotations;
 /// <example>
 /// <code>
 /// [CfSectionVisibleWhen("Advanced", "mode", "expert")]   // sub-tab shown only in expert mode
-/// public sealed record ShopwareConfig : ShopConfig { … }
+/// public sealed record HttpConnector : ConnectorConfig { … }
 /// </code>
 /// </example>
 [AttributeUsage(

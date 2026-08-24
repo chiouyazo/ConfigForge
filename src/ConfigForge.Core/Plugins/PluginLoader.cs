@@ -43,6 +43,26 @@ public sealed class PluginLoader : IPluginLoader
     }
 
     /// <inheritdoc />
+    public void LoadFromDirectory(string directoryPath)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(directoryPath);
+
+        if (!Directory.Exists(directoryPath))
+        {
+            _logger.Warning(
+                "Plugin directory {Directory} does not exist; nothing loaded.",
+                directoryPath
+            );
+            return;
+        }
+
+        foreach (string dll in Directory.EnumerateFiles(directoryPath, "*.dll"))
+        {
+            LoadAssemblyCore(dll);
+        }
+    }
+
+    /// <inheritdoc />
     public Task LoadAssemblyAsync(string assemblyPath)
     {
         ArgumentException.ThrowIfNullOrEmpty(assemblyPath);
@@ -74,7 +94,7 @@ public sealed class PluginLoader : IPluginLoader
     {
         foreach (string dll in Directory.EnumerateFiles(directoryPath, "*.dll"))
         {
-            await LoadAssemblyAsync(dll).ConfigureAwait(false);
+            await LoadAssemblyAsync(dll);
         }
     }
 

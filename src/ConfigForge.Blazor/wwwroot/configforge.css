@@ -141,6 +141,9 @@ body {
 .cf-collection-select {
     flex: 1;
     min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
     padding: 0.375rem 0.5rem;
     border: none;
     background: transparent;
@@ -149,10 +152,24 @@ body {
     font-size: 0.9rem;
     text-align: left;
     cursor: pointer;
+}
+.cf-collection-entry-label {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+.cf-collection-status {
+    flex: 0 0 auto;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--cf-text-secondary);
+}
+.cf-collection-status.cf-on { background: var(--cf-success, #2e7d32); }
+.cf-collection-status.cf-off { background: var(--cf-text-secondary); opacity: 0.5; }
+.cf-collection-item.cf-inactive .cf-collection-entry-label { opacity: 0.55; }
+.cf-collection-item.cf-active .cf-collection-status.cf-on { background: var(--cf-surface); }
 .cf-collection-remove {
     flex: 0 0 auto;
     padding: 0 0.5rem;

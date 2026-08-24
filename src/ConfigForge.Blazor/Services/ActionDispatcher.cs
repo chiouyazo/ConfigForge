@@ -37,15 +37,16 @@ public sealed partial class ActionDispatcher : IActionDispatcher
         )
         {
             LogActionNotRegistered(actionId);
-            await context
-                .ShowToastAsync($"Action '{actionId}' is not registered", ToastSeverity.Warning)
-                .ConfigureAwait(false);
+            await context.ShowToastAsync(
+                $"Action '{actionId}' is not registered",
+                ToastSeverity.Warning
+            );
             return;
         }
 
         try
         {
-            await handler(context).ConfigureAwait(false);
+            await handler(context);
             LogActionInvoked(actionId);
         }
         catch (OperationCanceledException)
@@ -57,9 +58,7 @@ public sealed partial class ActionDispatcher : IActionDispatcher
 #pragma warning restore CA1031
         {
             LogActionFailed(ex, actionId);
-            await context
-                .ShowToastAsync("An unexpected error occurred", ToastSeverity.Danger)
-                .ConfigureAwait(false);
+            await context.ShowToastAsync("An unexpected error occurred", ToastSeverity.Danger);
         }
     }
 
@@ -84,7 +83,7 @@ public sealed partial class ActionDispatcher : IActionDispatcher
 
         try
         {
-            IReadOnlyList<SelectOption> options = await handler(context).ConfigureAwait(false);
+            IReadOnlyList<SelectOption> options = await handler(context);
             LogLoaderInvoked(loaderId, options.Count);
             return options;
         }
@@ -98,9 +97,7 @@ public sealed partial class ActionDispatcher : IActionDispatcher
 #pragma warning restore CA1031
         {
             LogLoaderFailed(ex, loaderId);
-            await context
-                .ShowToastAsync("Failed to load options", ToastSeverity.Danger)
-                .ConfigureAwait(false);
+            await context.ShowToastAsync("Failed to load options", ToastSeverity.Danger);
             return [];
         }
     }

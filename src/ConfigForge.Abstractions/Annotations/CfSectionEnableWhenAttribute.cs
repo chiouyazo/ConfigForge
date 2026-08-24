@@ -7,10 +7,10 @@ namespace ConfigForge.Abstractions.Annotations;
 /// </summary>
 /// <example>
 /// <code>
-/// // A shop's "Config" and "Mapping" sub-tabs stay locked until the connection has been tested.
+/// // An entry's "Config" and "Mapping" sub-tabs stay locked until the connection has been tested.
 /// [CfSectionEnableWhen("Config", "connectionValid", CfCondition.IsSet)]
 /// [CfSectionEnableWhen("Mapping", "connectionValid", CfCondition.IsSet)]
-/// public sealed record ShopwareConfig : ShopConfig { … }
+/// public sealed record HttpConnector : ConnectorConfig { … }
 /// </code>
 /// </example>
 [AttributeUsage(

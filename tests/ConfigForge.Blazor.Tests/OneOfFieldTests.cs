@@ -55,15 +55,15 @@ public sealed class OneOfFieldTests : BunitContext
         """;
 
     private (IRenderedComponent<ConfigForgeShell> Cut, EditingSession Session) RenderWith(
-        object? shopValue
+        object? connectorValue
     )
     {
         IJsonFormsSchemaParser parser = Services.GetRequiredService<IJsonFormsSchemaParser>();
         ConfigSchema schema = parser.Parse(SchemaJson);
         ConfigDocument doc = new();
-        if (shopValue is not null)
+        if (connectorValue is not null)
         {
-            doc["Provider"] = shopValue;
+            doc["Provider"] = connectorValue;
         }
 
         IRenderedComponent<ConfigForgeShell> cut = Render<ConfigForgeShell>(parameters =>

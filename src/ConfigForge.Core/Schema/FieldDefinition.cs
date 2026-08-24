@@ -148,7 +148,7 @@ public sealed class FieldDefinition
     }
 
     /// <summary>
-    /// When a field template is rebased into a container (e.g. <c>shops/{guid}/url</c>), its rules
+    /// When a field template is rebased into a container (e.g. <c>connectors/{guid}/url</c>), its rules
     /// watch siblings relative to that container, so their condition scopes must move by the same
     /// prefix; otherwise a rule keyed on <c>url</c> would resolve against the document root.
     /// </summary>

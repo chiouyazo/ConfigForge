@@ -104,6 +104,30 @@ public sealed class DocumentEngineTests
         Assert.False(result.IsValid);
     }
 
+    private const string OptionalObjectSchema = """
+        {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "alerting": { "type": "object", "properties": { "email": { "type": "string" } }, "x-control": "nullable-object" }
+            }
+          },
+          "x-cf": { "id": "opt" }
+        }
+        """;
+
+    [Fact]
+    public void Parse_NullValueForOptionalField_IsTreatedAsAbsentAndValid()
+    {
+        var engine = new ConfigDocumentEngine();
+        ConfigSchema schema = new JsonFormsSchemaParser().Parse(OptionalObjectSchema);
+
+        ConfigDocumentParseResult result = engine.Parse("{ \"alerting\": null }", schema);
+
+        Assert.True(result.IsValid);
+        Assert.DoesNotContain(result.InvalidValues, e => e.Key == "alerting");
+    }
+
     [Fact]
     public void Parse_MalformedJson_SetsJsonErrorAndNeverThrows()
     {

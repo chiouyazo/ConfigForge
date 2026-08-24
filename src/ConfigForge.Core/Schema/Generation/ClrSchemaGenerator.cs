@@ -42,6 +42,7 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
 
         EmitCategoryMeta(rootType, xcf);
         EmitActions(rootType, xcf);
+        EmitCollections(rootType, xcf, options);
 
         JsonObject document = new() { ["schema"] = schema, ["x-cf"] = xcf };
 
@@ -378,7 +379,7 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
             // A nullable object renders as a section with an enable/disable toggle: disabling it
             // sets the value to null so an optional block (e.g. alerting) can be turned off entirely.
             // Giving the object a [CfSection] opts out of the toggle: it is then treated as an
-            // always-present titled section (e.g. chunk sizes), not an optional on/off block.
+            // always-present titled section (e.g. batch sizes), not an optional on/off block.
             schema["x-control"] = "nullable-object";
         }
         ApplyStringHint(
@@ -577,6 +578,11 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
                 placement["category"] = action.Category;
             }
 
+            if (action.Section is not null)
+            {
+                placement["section"] = action.Section;
+            }
+
             JsonObject entry = new()
             {
                 ["actionId"] = action.ActionId,
@@ -603,6 +609,92 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
 
         xcf["actions"] = array;
     }
+
+    /// <summary>
+    /// Emits collection metadata (<c>collection</c>/<c>collectionLabel</c>/<c>collectionAddLabel</c>/
+    /// <c>collectionEntryStatus</c>) into <c>x-cf.categories[label]</c> from <c>[CfCollection]</c> on
+    /// the root type's map properties, so a map renders as a sidebar master/detail without a
+    /// hand-written overlay. The label is resolved to the same category the layout pass assigns the
+    /// property to (its group when the group has a single tab, otherwise its category).
+    /// </summary>
+    private static void EmitCollections(
+        Type rootType,
+        JsonObject xcf,
+        SchemaGenerationOptions options
+    )
+    {
+        List<PropertyInfo> collectionProperties =
+        [
+            .. GetSerializableProperties(rootType, options)
+                .Where(p => p.GetCustomAttribute<CfCollectionAttribute>() is not null),
+        ];
+        if (collectionProperties.Count == 0)
+        {
+            return;
+        }
+
+        List<CategoryMember> roots =
+        [
+            .. GetSerializableProperties(rootType, options).Select(p => ToMember(p, options)),
+        ];
+        bool anyGroup = roots.Exists(r => r.GroupName is not null);
+
+        JsonObject categories = xcf["categories"] as JsonObject ?? [];
+        foreach (PropertyInfo property in collectionProperties)
+        {
+            CfCollectionAttribute attribute = property.GetCustomAttribute<CfCollectionAttribute>()!;
+            string label = ResolveCategoryLabel(ToMember(property, options), roots, anyGroup);
+
+            JsonObject entry = categories[label] as JsonObject ?? [];
+            entry["collection"] = ResolvePropertyName(property, options);
+            ApplyStringHint(entry, "collectionLabel", attribute.Label);
+            ApplyStringHint(entry, "collectionAddLabel", attribute.AddLabel);
+            ApplyStringHint(entry, "collectionEntryStatus", attribute.Status);
+            categories[label] = entry;
+        }
+
+        xcf["categories"] = categories;
+    }
+
+    /// <summary>
+    /// The category label the layout pass assigns a member to: its category when flat, and when
+    /// grouped, its group (single-tab group) or its category (a sub-tab of a multi-tab group).
+    /// </summary>
+    private static string ResolveCategoryLabel(
+        CategoryMember member,
+        List<CategoryMember> roots,
+        bool anyGroup
+    )
+    {
+        if (!anyGroup)
+        {
+            return member.CategoryName ?? "General";
+        }
+
+        string groupLabel = member.GroupName ?? "General";
+        int tabCount = roots
+            .Where(r =>
+                string.Equals(r.GroupName ?? "General", groupLabel, StringComparison.Ordinal)
+            )
+            .Select(r => r.CategoryName ?? "General")
+            .Distinct(StringComparer.Ordinal)
+            .Count();
+        return tabCount <= 1 ? groupLabel : member.CategoryName ?? "General";
+    }
+
+    private static CategoryMember ToMember(
+        PropertyInfo property,
+        SchemaGenerationOptions options
+    ) =>
+        new(
+            ResolvePropertyName(property, options),
+            property.GetCustomAttribute<CfGroupAttribute>()?.Group
+                ?? Options(property)?.Group
+                ?? Member(property, options)?.Group,
+            property.GetCustomAttribute<CfCategoryAttribute>()?.Category
+                ?? Options(property)?.Category
+                ?? Member(property, options)?.Category
+        );
 
     /// <summary>Builds an inline JsonForms rule (<c>x-rule</c>) from a <c>[CfEnableWhen]</c>/<c>[CfVisibleWhen]</c>.</summary>
     private static JsonObject BuildRule(CfRuleAttribute rule) =>
@@ -1025,16 +1117,7 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
     {
         List<CategoryMember> roots =
         [
-            .. GetSerializableProperties(rootType, options)
-                .Select(p => new CategoryMember(
-                    ResolvePropertyName(p, options),
-                    p.GetCustomAttribute<CfGroupAttribute>()?.Group
-                        ?? Options(p)?.Group
-                        ?? Member(p, options)?.Group,
-                    p.GetCustomAttribute<CfCategoryAttribute>()?.Category
-                        ?? Options(p)?.Category
-                        ?? Member(p, options)?.Category
-                )),
+            .. GetSerializableProperties(rootType, options).Select(p => ToMember(p, options)),
         ];
 
         bool anyGroup = roots.Exists(r => r.GroupName is not null);

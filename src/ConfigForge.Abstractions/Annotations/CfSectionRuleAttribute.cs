@@ -5,7 +5,7 @@ namespace ConfigForge.Abstractions.Annotations;
 /// (<see cref="CfSectionEnableWhenAttribute"/>, <see cref="CfSectionVisibleWhenAttribute"/>).
 /// Placed on the config <b>type</b> and keyed by a section name (a <c>[CfSection]</c> value).
 /// Gates a whole section — most visibly the sub-tab a <c>oneof</c> variant renders for that
-/// section — against another field's value (e.g. lock a shop's "Config" sub-tab until its
+/// section — against another field's value (e.g. lock an entry's "Config" sub-tab until its
 /// connection has been tested).
 /// </summary>
 public abstract class CfSectionRuleAttribute : Attribute

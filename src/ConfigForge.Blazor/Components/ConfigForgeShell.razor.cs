@@ -26,6 +26,14 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
     private int _addEntryCategoryIndex;
     private string? _addEntryVariant;
     private string _addEntryName = string.Empty;
+
+    // Non-null while the add dialog edits a provisional entry in place (control mode): the entry is
+    // staged in the document on open so its label field renders with its real control (dropdown,
+    // loader, enum), and is committed on confirm or reverted on cancel.
+    private string? _addEntryKey;
+
+    // The collection field's value before staging, restored verbatim if the dialog is cancelled.
+    private object? _addEntryOriginalCollection;
     private CollectionEntryRef? _removeEntryRef;
     private bool _showDiscardConfirm;
 
@@ -94,6 +102,21 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
     [Parameter]
     public EventCallback<string> OnCategoryChanged { get; set; }
 
+    /// <summary>
+    /// The key of the entry to select within the active collection category. Lets a host deep-link
+    /// to a single entry (e.g. from the URL). Ignored for non-collection categories or an unknown
+    /// key.
+    /// </summary>
+    [Parameter]
+    public string? ActiveEntryKey { get; set; }
+
+    /// <summary>
+    /// Raised with the selected entry key (or null when none) when the selection within a
+    /// collection category changes, so a host can reflect it in the URL.
+    /// </summary>
+    [Parameter]
+    public EventCallback<string?> OnEntryChanged { get; set; }
+
     /// <summary>Raised when the user saves; receives the current document.</summary>
     [Parameter]
     public EventCallback<ConfigDocument> OnSave { get; set; }
@@ -150,6 +173,7 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
         }
 
         SyncActiveCategoryFromLabel();
+        SyncActiveEntryFromKey();
         EnsureActiveCategoryUsable();
     }
 
@@ -174,6 +198,29 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
                 Session.SetActiveCategory(i);
                 break;
             }
+        }
+    }
+
+    // Apply a host-supplied entry deep-link. Sets the selection directly (no OnEntryChanged) so it
+    // does not echo back to the host and loop, mirroring SyncActiveCategoryFromLabel.
+    private void SyncActiveEntryFromKey()
+    {
+        if (ActiveEntryKey is not { Length: > 0 } entryKey)
+        {
+            return;
+        }
+
+        int active = Session.ActiveCategoryIndex;
+        IReadOnlyList<CategoryElement> categories = Schema.Categories;
+        if (
+            active >= 0
+            && active < categories.Count
+            && categories[active].CollectionKey is { Length: > 0 } collectionKey
+            && Session.Document[collectionKey] is IDictionary<string, object?> map
+            && map.ContainsKey(entryKey)
+        )
+        {
+            Session.SetSelectedEntry(collectionKey, entryKey);
         }
     }
 
@@ -225,12 +272,23 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
             && FirstEntryKey(collectionKey) is { } firstEntry
         )
         {
-            Session.SetSelectedEntry(collectionKey, firstEntry);
+            await SetSelectedEntryAsync(collectionKey, firstEntry);
         }
 
         if (OnCategoryChanged.HasDelegate && index >= 0 && index < categories.Count)
         {
-            await OnCategoryChanged.InvokeAsync(categories[index].Label).ConfigureAwait(false);
+            await OnCategoryChanged.InvokeAsync(categories[index].Label);
+        }
+    }
+
+    // The single place a collection selection changes by user action: sets it and notifies the host
+    // (so it can reflect the entry in the URL). The deep-link apply path bypasses this to avoid a loop.
+    private async Task SetSelectedEntryAsync(string collectionKey, string? entryKey)
+    {
+        Session.SetSelectedEntry(collectionKey, entryKey);
+        if (OnEntryChanged.HasDelegate)
+        {
+            await OnEntryChanged.InvokeAsync(entryKey);
         }
     }
 
@@ -294,10 +352,10 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
 
     private async Task OnSelectCollectionEntry(CollectionEntryRef entry)
     {
-        await OnSelectCategory(entry.CategoryIndex).ConfigureAwait(false);
+        await OnSelectCategory(entry.CategoryIndex);
         if (Schema.Categories[entry.CategoryIndex].CollectionKey is { Length: > 0 } key)
         {
-            Session.SetSelectedEntry(key, entry.EntryKey);
+            await SetSelectedEntryAsync(key, entry.EntryKey);
         }
     }
 
@@ -306,32 +364,60 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
         _addEntryCategoryIndex = categoryIndex;
         _addEntryName = string.Empty;
         _addEntryVariant = AddVariants.Count > 0 ? AddVariants[0].DiscriminatorValue : null;
+        _addEntryKey = null;
+
+        // When the label maps to a real entry field, edit the entry in place: stage it now so the
+        // label field renders with its own control (and any loader resolves against a live path).
+        if (
+            AddCategory?.CollectionKey is { Length: > 0 } collectionKey
+            && ResolveAddLabelTemplate() is not null
+        )
+        {
+            _addEntryOriginalCollection = Session.GetFieldValue(collectionKey);
+            _addEntryKey = Session.StageMapEntry(
+                collectionKey,
+                IsKeyless(collectionKey),
+                NewEntrySeed()
+            );
+        }
+
         _showAddEntryDialog = true;
     }
 
-    private void CancelAddEntry() => _showAddEntryDialog = false;
+    private void CancelAddEntry()
+    {
+        if (
+            _addEntryKey is { } stagedKey
+            && AddCategory?.CollectionKey is { Length: > 0 } collectionKey
+        )
+        {
+            Session.DiscardStagedEntry(collectionKey, stagedKey, _addEntryOriginalCollection);
+        }
 
-    private void ConfirmAddEntry()
+        CleanupAddDialog();
+    }
+
+    private async Task ConfirmAddEntry()
     {
         CategoryElement? category = AddCategory;
-        FieldDefinition? valueField = AddValueField;
         if (category?.CollectionKey is not { Length: > 0 } collectionKey)
         {
-            _showAddEntryDialog = false;
+            CleanupAddDialog();
             return;
         }
 
-        Dictionary<string, object?> value = new(StringComparer.Ordinal);
-        if (
-            valueField?.DiscriminatorKey is { Length: > 0 } disc
-            && _addEntryVariant is { Length: > 0 }
-        )
+        // Control mode: the entry is already staged; make it permanent and select it.
+        if (_addEntryKey is { } stagedKey)
         {
-            value[disc] = _addEntryVariant;
+            Session.CommitStagedEntry(collectionKey);
+            Session.SetActiveCategory(_addEntryCategoryIndex);
+            await SetSelectedEntryAsync(collectionKey, stagedKey);
+            CleanupAddDialog();
+            return;
         }
 
-        // Seed the label field so the new entry is identifiable in the sidebar immediately.
-        // Only flat label keys are seeded here; nested labels are left for the user to fill.
+        // Name mode: no label control resolved, so the free-text name seeds the flat label field.
+        Dictionary<string, object?> value = NewEntrySeed();
         if (
             !string.IsNullOrWhiteSpace(_addEntryName)
             && category.CollectionEntryLabelKey is { Length: > 0 } labelKey
@@ -341,24 +427,108 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
             value[labelKey] = _addEntryName.Trim();
         }
 
-        // KeyFormat lives on the map field itself, not on the entry-value template. Reading it
-        // off the value template here always yielded null, so uuid-keyed collections (shops,
-        // schedules) wrongly got sequential "keyN" keys instead of a GUID.
-        string? keyFormat = Schema.Fields.TryGetValue(collectionKey, out FieldDefinition? mapField)
-            ? mapField.KeyFormat
-            : null;
-        bool keyless = string.Equals(keyFormat, "uuid", StringComparison.Ordinal);
-        string entryKey = Session.AddMapEntry(collectionKey, keyless, value);
+        string entryKey = Session.AddMapEntry(collectionKey, IsKeyless(collectionKey), value);
         Session.SetActiveCategory(_addEntryCategoryIndex);
-        Session.SetSelectedEntry(collectionKey, entryKey);
+        await SetSelectedEntryAsync(collectionKey, entryKey);
+        CleanupAddDialog();
+    }
+
+    private void CleanupAddDialog()
+    {
         _showAddEntryDialog = false;
+        _addEntryKey = null;
+        _addEntryOriginalCollection = null;
+    }
+
+    // KeyFormat lives on the map field itself, not on the entry-value template. Reading it off the
+    // value template yields null, so uuid-keyed collections would wrongly get sequential "keyN"
+    // keys instead of a GUID.
+    private bool IsKeyless(string collectionKey) =>
+        Schema.Fields.TryGetValue(collectionKey, out FieldDefinition? mapField)
+        && string.Equals(mapField.KeyFormat, "uuid", StringComparison.Ordinal);
+
+    private Dictionary<string, object?> NewEntrySeed()
+    {
+        Dictionary<string, object?> seed = new(StringComparer.Ordinal);
+        if (
+            AddValueField?.DiscriminatorKey is { Length: > 0 } disc
+            && _addEntryVariant is { Length: > 0 }
+        )
+        {
+            seed[disc] = _addEntryVariant;
+        }
+
+        return seed;
+    }
+
+    // Switching the type in control mode resets the staged entry to the new variant so the label
+    // field (which may differ per variant) resolves against a clean shape.
+    private void OnAddVariantChanged(string? variant)
+    {
+        _addEntryVariant = variant;
+        if (
+            _addEntryKey is { } stagedKey
+            && AddIsOneOf
+            && AddCategory?.CollectionKey is { Length: > 0 } collectionKey
+        )
+        {
+            Session.SetStagedEntryValue(collectionKey, stagedKey, NewEntrySeed());
+        }
+    }
+
+    // The label field to render in the add dialog, rebased onto the staged entry's path, or null
+    // when the label has no dedicated control (name mode: a free-text name is used instead).
+    private FieldDefinition? AddLabelField
+    {
+        get
+        {
+            if (
+                _addEntryKey is not { } stagedKey
+                || AddCategory?.CollectionKey is not { Length: > 0 } collectionKey
+                || ResolveAddLabelTemplate() is not { } template
+            )
+            {
+                return null;
+            }
+
+            return template.WithKey($"{collectionKey}/{stagedKey}/{template.Key}");
+        }
+    }
+
+    // The entry field the collection's label points at (a direct child of the value template, or of
+    // the selected oneof variant). Null when the label key is unset, nested, or not a real field.
+    private FieldDefinition? ResolveAddLabelTemplate()
+    {
+        if (
+            AddCategory?.CollectionEntryLabelKey is not { Length: > 0 } labelKey
+            || labelKey.Contains('/', StringComparison.Ordinal)
+            || AddValueField is not { } value
+        )
+        {
+            return null;
+        }
+
+        if (value.DiscriminatorKey is { Length: > 0 })
+        {
+            OneOfVariant? variant =
+                value.OneOfVariants.FirstOrDefault(v =>
+                    string.Equals(v.DiscriminatorValue, _addEntryVariant, StringComparison.Ordinal)
+                ) ?? (value.OneOfVariants.Count > 0 ? value.OneOfVariants[0] : null);
+            return variant?.Children.FirstOrDefault(c =>
+                string.Equals(c.Key, labelKey, StringComparison.Ordinal)
+            );
+        }
+
+        return value.Children.FirstOrDefault(c =>
+            string.Equals(c.Key, labelKey, StringComparison.Ordinal)
+        );
     }
 
     private void OnRemoveCollectionEntry(CollectionEntryRef entry) => _removeEntryRef = entry;
 
     private void CancelRemoveEntry() => _removeEntryRef = null;
 
-    private void ConfirmRemoveEntry()
+    private async Task ConfirmRemoveEntry()
     {
         if (
             _removeEntryRef is { } entry
@@ -371,7 +541,7 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
             )
         )
         {
-            Session.SetSelectedEntry(collectionKey, null);
+            await SetSelectedEntryAsync(collectionKey, null);
         }
 
         _removeEntryRef = null;
@@ -415,8 +585,7 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
     {
         try
         {
-            await JS.InvokeVoidAsync("navigator.clipboard.writeText", CurrentCode)
-                .ConfigureAwait(false);
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", CurrentCode);
             _copied = true;
         }
         catch (JSException)
@@ -445,7 +614,7 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
 
         try
         {
-            await OnSave.InvokeAsync(Session.Document).ConfigureAwait(false);
+            await OnSave.InvokeAsync(Session.Document);
             Session.AcceptAsSaved();
             Session.EnqueueToast("Configuration saved.", ToastSeverity.Success);
         }
@@ -468,7 +637,7 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
     }
 
     // Jump the sidebar to the entry that owns the first validation problem, so a required field
-    // buried in a collection entry (e.g. shops/<guid>/…) is reachable rather than hidden.
+    // buried in a collection entry (e.g. connectors/<guid>/…) is reachable rather than hidden.
     private void NavigateToFirstProblem(ConfigDocumentParseResult result)
     {
         string? key = FirstProblemKey(result);

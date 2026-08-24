@@ -30,7 +30,7 @@ public sealed class NestedRenderTests : BunitContext
           "schema": {
             "type": "object",
             "properties": {
-              "ExchangeLock": {
+              "Nested": {
                 "type": "object",
                 "properties": {
                   "ConnectionString": { "type": "string", "title": "Connection string" }

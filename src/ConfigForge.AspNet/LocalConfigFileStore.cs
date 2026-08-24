@@ -45,7 +45,7 @@ public sealed class LocalConfigFileStore
             return null;
         }
 
-        return await File.ReadAllTextAsync(path).ConfigureAwait(false);
+        return await File.ReadAllTextAsync(path);
     }
 
     /// <summary>Writes the current document and rotates a timestamped backup copy.</summary>
@@ -62,11 +62,11 @@ public sealed class LocalConfigFileStore
                 "yyyyMMdd-HHmmss-fff",
                 CultureInfo.InvariantCulture
             );
-            await File.WriteAllTextAsync(BackupPath(schemaId, stamp), json).ConfigureAwait(false);
+            await File.WriteAllTextAsync(BackupPath(schemaId, stamp), json);
             PruneBackups(schemaId);
         }
 
-        await File.WriteAllTextAsync(MainPath(schemaId), json).ConfigureAwait(false);
+        await File.WriteAllTextAsync(MainPath(schemaId), json);
     }
 
     private void PruneBackups(string schemaId)

@@ -67,9 +67,15 @@
                 : null;
         string? activeLabel = activeCategory?.Label;
 
-        bool hasSelectedEntry =
-            activeCategory?.CollectionKey is { Length: > 0 } collectionKey
-            && !string.IsNullOrEmpty(Session.GetSelectedEntry(collectionKey));
+        string? entryFieldKey = SelectedEntryFieldKey();
+        bool hasSelectedEntry = entryFieldKey is not null;
+        // The active sub-tab is either the selected entry's (a collection) or the active group's
+        // (a grouped category); a section-scoped action matches whichever is showing.
+        string? activeSection = entryFieldKey is not null
+            ? Session.GetSelectedSection(entryFieldKey)
+            : activeLabel is not null
+                ? Session.GetSelectedGroupTab(activeLabel)
+                : null;
 
         List<ActionDefinition> matches = [];
         foreach (ActionDefinition action in schema.Actions)
@@ -79,8 +85,16 @@
                 activeLabel is not null
                 && string.Equals(action.Category, activeLabel, StringComparison.Ordinal);
             bool positionMatch = string.Equals(action.Position, position, StringComparison.OrdinalIgnoreCase);
+            bool sectionMatch =
+                string.IsNullOrEmpty(action.Section)
+                || string.Equals(action.Section, activeSection, StringComparison.Ordinal);
 
-            if ((global || inCategory) && positionMatch && (!action.RequiresEntry || hasSelectedEntry))
+            if (
+                (global || inCategory)
+                && positionMatch
+                && (!action.RequiresEntry || hasSelectedEntry)
+                && sectionMatch
+            )
             {
                 matches.Add(action);
             }
@@ -103,9 +117,9 @@
         try
         {
             // In a collection category, actions operate on the selected entry: expose its path
-            // as CurrentFieldKey so the handler knows which entry (e.g. which shop) it runs for.
+            // as CurrentFieldKey so the handler knows which entry (e.g. which entry) it runs for.
             ActionContext context = new(Session, Services, SelectedEntryFieldKey());
-            await Dispatcher.DispatchActionAsync(actionId, context).ConfigureAwait(false);
+            await Dispatcher.DispatchActionAsync(actionId, context);
         }
         finally
         {

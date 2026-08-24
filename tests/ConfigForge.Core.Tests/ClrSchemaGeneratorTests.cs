@@ -226,10 +226,11 @@ public sealed class ClrSchemaGeneratorTests
         Assert.True(serialized.ContainsKey("instanceName"));
         Assert.True(serialized.ContainsKey("providers"));
 
-        JsonObject firstShop = (JsonObject)((JsonObject)serialized["providers"]!).First().Value!;
-        Assert.Equal("primary", firstShop["type"]!.GetValue<string>());
-        Assert.True(firstShop.ContainsKey("url"));
-        Assert.True(firstShop.ContainsKey("clientSecret"));
+        JsonObject firstConnector = (JsonObject)
+            ((JsonObject)serialized["providers"]!).First().Value!;
+        Assert.Equal("primary", firstConnector["type"]!.GetValue<string>());
+        Assert.True(firstConnector.ContainsKey("url"));
+        Assert.True(firstConnector.ContainsKey("clientSecret"));
     }
 
     private sealed record CategorizedConfig
@@ -351,6 +352,64 @@ public sealed class ClrSchemaGeneratorTests
         Assert.Equal(["Auth", "Limits"], groups.Select(g => g!["label"]!.GetValue<string>()));
         // The "Auth" section box holds both its controls.
         Assert.Equal(2, ((JsonArray)groups[0]!["elements"]!).Count);
+    }
+
+    private sealed record CollectionEntry
+    {
+        public string? Name { get; init; }
+        public bool Active { get; init; }
+    }
+
+    private sealed record GroupedCollectionConfig
+    {
+        [CfGroup("Connectors")]
+        [CfCollection(Label = "name", AddLabel = "Add connector", Status = "active")]
+        public IDictionary<Guid, CollectionEntry> Connectors { get; init; } =
+            new Dictionary<Guid, CollectionEntry>();
+    }
+
+    [Fact]
+    public void CfCollection_EmitsCollectionMetadataOntoItsCategory()
+    {
+        Assert.NotNull(new GroupedCollectionConfig());
+        Assert.NotNull(new CollectionEntry());
+        string json = new ClrSchemaGenerator().Generate<GroupedCollectionConfig>(
+            new() { Id = "c" }
+        );
+
+        JsonObject meta = (JsonObject)JsonNode.Parse(json)!["x-cf"]!["categories"]!["Connectors"]!;
+        Assert.Equal("connectors", meta["collection"]!.GetValue<string>());
+        Assert.Equal("name", meta["collectionLabel"]!.GetValue<string>());
+        Assert.Equal("Add connector", meta["collectionAddLabel"]!.GetValue<string>());
+        Assert.Equal("active", meta["collectionEntryStatus"]!.GetValue<string>());
+
+        ConfigSchema schema = new JsonFormsSchemaParser().Parse(json);
+        CategoryElement category = schema.Categories.Single(c => c.Label == "Connectors");
+        Assert.Equal("connectors", category.CollectionKey);
+        Assert.Equal("name", category.CollectionEntryLabelKey);
+        Assert.Equal("Add connector", category.CollectionAddLabel);
+        Assert.Equal("active", category.CollectionEntryStatusKey);
+    }
+
+    private sealed record FlatCollectionConfig
+    {
+        [CfCategory("Items")]
+        [CfCollection(Label = "name")]
+        public IDictionary<string, CollectionEntry> Items { get; init; } =
+            new Dictionary<string, CollectionEntry>();
+    }
+
+    [Fact]
+    public void CfCollection_Flat_KeysOnCategory_AndOmitsUnsetHints()
+    {
+        Assert.NotNull(new FlatCollectionConfig());
+        string json = new ClrSchemaGenerator().Generate<FlatCollectionConfig>(new() { Id = "f" });
+
+        JsonObject meta = (JsonObject)JsonNode.Parse(json)!["x-cf"]!["categories"]!["Items"]!;
+        Assert.Equal("items", meta["collection"]!.GetValue<string>());
+        Assert.Equal("name", meta["collectionLabel"]!.GetValue<string>());
+        Assert.False(meta.ContainsKey("collectionAddLabel"));
+        Assert.False(meta.ContainsKey("collectionEntryStatus"));
     }
 
     [Fact]
@@ -545,7 +604,7 @@ public sealed class ClrSchemaGeneratorTests
     private sealed record NestedBoxConfig
     {
         [CfCategory("Main")]
-        public FeatureBlock ExchangeLock { get; init; } = new();
+        public FeatureBlock Nested { get; init; } = new();
     }
 
     private sealed record OptionalBlock
@@ -557,8 +616,8 @@ public sealed class ClrSchemaGeneratorTests
     {
         public OptionalBlock? Fallback { get; init; }
 
-        [CfSection("Chunks")]
-        public OptionalBlock? ChunkSizes { get; init; }
+        [CfSection("Advanced")]
+        public OptionalBlock? BatchSizes { get; init; }
     }
 
     [Fact]
@@ -575,16 +634,16 @@ public sealed class ClrSchemaGeneratorTests
         Assert.Equal("nullable-object", props["fallback"]!["x-control"]!.GetValue<string>());
 
         // With [CfSection]: no toggle; it is an always-present titled section instead.
-        Assert.Null(props["chunkSizes"]!["x-control"]);
-        Assert.Equal("Chunks", props["chunkSizes"]!["x-section"]!.GetValue<string>());
+        Assert.Null(props["batchSizes"]!["x-control"]);
+        Assert.Equal("Advanced", props["batchSizes"]!["x-section"]!.GetValue<string>());
     }
 
     [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
-    [JsonDerivedType(typeof(GatedShop), "gated")]
-    private abstract record GatedShopBase;
+    [JsonDerivedType(typeof(GatedConnector), "gated")]
+    private abstract record GatedConnectorBase;
 
     [CfSectionEnableWhen("Config", "connectionValid", CfCondition.IsSet)]
-    private sealed record GatedShop : GatedShopBase
+    private sealed record GatedConnector : GatedConnectorBase
     {
         [CfSection("Config")]
         public string? Threshold { get; init; }
@@ -594,22 +653,22 @@ public sealed class ClrSchemaGeneratorTests
 
     private sealed record SectionRuleConfig
     {
-        public IDictionary<Guid, GatedShopBase> Shops { get; init; } =
-            new Dictionary<Guid, GatedShopBase>();
+        public IDictionary<Guid, GatedConnectorBase> Connectors { get; init; } =
+            new Dictionary<Guid, GatedConnectorBase>();
     }
 
     [Fact]
     public void CfSectionEnableWhen_EmitsSectionRule_ParsedOntoVariant()
     {
         Assert.NotNull(new SectionRuleConfig());
-        Assert.NotNull(new GatedShop());
+        Assert.NotNull(new GatedConnector());
         string json = new ClrSchemaGenerator().Generate<SectionRuleConfig>(
             new SchemaGenerationOptions { Id = "sr" }
         );
 
         ConfigSchema schema = new JsonFormsSchemaParser().Parse(json);
         OneOfVariant variant = schema
-            .Fields["shops"]
+            .Fields["connectors"]
             .ValueField!.OneOfVariants.Single(v =>
                 string.Equals(v.DiscriminatorValue, "gated", StringComparison.Ordinal)
             );
@@ -732,7 +791,7 @@ public sealed class ClrSchemaGeneratorTests
         JsonArray mainElements = (JsonArray)
             JsonNode.Parse(json)!["uiSchema"]!["elements"]![0]!["elements"]!;
 
-        // The nested [CfSection] on ExchangeLock.Features produced a titled Group box...
+        // The nested [CfSection] on Nested.Features produced a titled Group box...
         JsonNode box = mainElements.First(e =>
             string.Equals(e!["type"]?.GetValue<string>(), "Group", StringComparison.Ordinal)
         )!;

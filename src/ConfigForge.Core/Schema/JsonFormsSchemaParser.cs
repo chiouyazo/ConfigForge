@@ -131,6 +131,7 @@ public sealed partial class JsonFormsSchemaParser : IJsonFormsSchemaParser
                     Icon = GetString(action, "icon"),
                     Variant = GetString(action, "variant") ?? "secondary",
                     Category = GetString(placement, "category"),
+                    Section = GetString(placement, "section"),
                     Position = GetString(placement, "position") ?? "bottom",
                     RequiresEntry = GetBool(action, "requiresEntry") ?? false,
                 }
@@ -709,6 +710,7 @@ public sealed partial class JsonFormsSchemaParser : IJsonFormsSchemaParser
             CollectionKey = GetString(meta, "collection"),
             CollectionEntryLabelKey = GetString(meta, "collectionLabel"),
             CollectionAddLabel = GetString(meta, "collectionAddLabel"),
+            CollectionEntryStatusKey = GetString(meta, "collectionEntryStatus"),
             Rules = ReadRuleList(meta["rule"]),
         };
     }

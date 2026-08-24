@@ -24,6 +24,8 @@ public sealed class EditingSession : IDisposable
 
     private readonly Dictionary<string, string?> _fieldErrors = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _selectedEntries = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _selectedSections = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _selectedGroupTabs = new(StringComparer.Ordinal);
     private readonly HashSet<string> _touchedKeys = new(StringComparer.Ordinal);
     private readonly List<ToastMessage> _toasts = [];
 
@@ -120,6 +122,8 @@ public sealed class EditingSession : IDisposable
         _fieldEnabled.Clear();
         _fieldErrors.Clear();
         _selectedEntries.Clear();
+        _selectedSections.Clear();
+        _selectedGroupTabs.Clear();
         _touchedKeys.Clear();
         _saveAttempted = false;
 
@@ -189,7 +193,7 @@ public sealed class EditingSession : IDisposable
     /// <summary>
     /// Whether a validation error for a field should be shown yet. Validation runs live, but a
     /// freshly created entry has not been touched, so its errors stay hidden until the user edits
-    /// the field or presses save. Avoids flagging a new shop red before the user did anything.
+    /// the field or presses save. Avoids flagging a new entry red before the user did anything.
     /// </summary>
     public bool ShouldShowError(string key) => _saveAttempted || _touchedKeys.Contains(key);
 
@@ -247,6 +251,50 @@ public sealed class EditingSession : IDisposable
         RaiseStateChanged();
     }
 
+    /// <summary>Returns the active section (sub-tab) of a oneof field, or null when unset.</summary>
+    /// <param name="fieldKey">The oneof field key (e.g. a rebased entry path).</param>
+    public string? GetSelectedSection(string fieldKey) =>
+        _selectedSections.TryGetValue(fieldKey, out string? section) ? section : null;
+
+    /// <summary>Records the active section (sub-tab) of a oneof field and notifies subscribers.</summary>
+    /// <param name="fieldKey">The oneof field key.</param>
+    /// <param name="section">The active section name.</param>
+    public void SetSelectedSection(string fieldKey, string section)
+    {
+        ArgumentNullException.ThrowIfNull(fieldKey);
+        ArgumentNullException.ThrowIfNull(section);
+        _selectedSections[fieldKey] = section;
+        RaiseStateChanged();
+    }
+
+    /// <summary>Returns the active sub-tab of a grouped category, or null when none is recorded.</summary>
+    /// <param name="groupKey">The group (top-level category) label.</param>
+    public string? GetSelectedGroupTab(string groupKey) =>
+        _selectedGroupTabs.TryGetValue(groupKey, out string? tab) ? tab : null;
+
+    /// <summary>
+    /// Records the active sub-tab of a grouped category, so section-scoped actions can match the
+    /// tab that is showing. No-ops (no notification) when unchanged, so a component can persist its
+    /// default tab on every render without a re-render loop.
+    /// </summary>
+    /// <param name="groupKey">The group (top-level category) label.</param>
+    /// <param name="tabLabel">The active sub-tab label.</param>
+    public void SetSelectedGroupTab(string groupKey, string tabLabel)
+    {
+        ArgumentNullException.ThrowIfNull(groupKey);
+        ArgumentNullException.ThrowIfNull(tabLabel);
+        if (
+            _selectedGroupTabs.TryGetValue(groupKey, out string? existing)
+            && string.Equals(existing, tabLabel, StringComparison.Ordinal)
+        )
+        {
+            return;
+        }
+
+        _selectedGroupTabs[groupKey] = tabLabel;
+        RaiseStateChanged();
+    }
+
     /// <summary>
     /// Adds an entry to a map field and returns its key. The single place map entries are
     /// created, so the map control and the collection sidebar stay consistent (keyless maps
@@ -281,6 +329,85 @@ public sealed class EditingSession : IDisposable
 
         SetFieldValue(fieldKey, map);
         return true;
+    }
+
+    /// <summary>
+    /// Adds a <em>provisional</em> map entry and returns its key, without marking the document
+    /// dirty, validating, or touching keys. Used by the add-entry dialog so the entry's fields
+    /// (loaders included) can render against a real document path while the dialog is open; the
+    /// entry is made permanent with <see cref="CommitStagedEntry"/> or reverted with
+    /// <see cref="DiscardStagedEntry"/>.
+    /// </summary>
+    /// <param name="fieldKey">The map field key.</param>
+    /// <param name="keyless">True for a uuid-keyed map (generate a GUID the user never sees).</param>
+    /// <param name="value">The seed entry value (e.g. an object carrying just the discriminator).</param>
+    /// <returns>The key of the staged entry.</returns>
+    public string StageMapEntry(string fieldKey, bool keyless, object? value)
+    {
+        ArgumentNullException.ThrowIfNull(fieldKey);
+        Dictionary<string, object?> map = ReadMapCopy(fieldKey);
+        string entryKey = keyless ? Guid.NewGuid().ToString() : UniqueMapKey(map);
+        map[entryKey] = value;
+        Document[fieldKey] = map;
+        RaiseStateChanged();
+        return entryKey;
+    }
+
+    /// <summary>Replaces a staged entry's value provisionally (e.g. when its type is switched).</summary>
+    /// <param name="fieldKey">The map field key.</param>
+    /// <param name="entryKey">The staged entry key.</param>
+    /// <param name="value">The new entry value.</param>
+    public void SetStagedEntryValue(string fieldKey, string entryKey, object? value)
+    {
+        ArgumentNullException.ThrowIfNull(fieldKey);
+        ArgumentNullException.ThrowIfNull(entryKey);
+        Dictionary<string, object?> map = ReadMapCopy(fieldKey);
+        map[entryKey] = value;
+        Document[fieldKey] = map;
+        RaiseStateChanged();
+    }
+
+    /// <summary>
+    /// Reverts a staged entry by restoring the map field to <paramref name="originalValue"/> (the
+    /// value it held before staging, or null when the key was absent) and clearing any
+    /// touched/validation state left by editing the entry, so cancelling the dialog leaves the
+    /// document exactly as it was, not dirty.
+    /// </summary>
+    /// <param name="fieldKey">The map field key.</param>
+    /// <param name="entryKey">The staged entry key.</param>
+    /// <param name="originalValue">The map field's value before staging (null when it was absent).</param>
+    public void DiscardStagedEntry(string fieldKey, string entryKey, object? originalValue)
+    {
+        ArgumentNullException.ThrowIfNull(fieldKey);
+        ArgumentNullException.ThrowIfNull(entryKey);
+        if (originalValue is null)
+        {
+            Document.Remove(fieldKey);
+        }
+        else
+        {
+            Document[fieldKey] = originalValue;
+        }
+
+        string prefix = fieldKey + "/" + entryKey;
+        _touchedKeys.RemoveWhere(k => k.StartsWith(prefix, StringComparison.Ordinal));
+        _dirtyTracker.Update(Document);
+        RecomputeValidation();
+        RaiseStateChanged();
+    }
+
+    /// <summary>
+    /// Promotes a staged entry to a tracked change: marks the map field dirty and revalidates, so
+    /// the confirmed entry participates in save/validation like any edit.
+    /// </summary>
+    /// <param name="fieldKey">The map field key.</param>
+    public void CommitStagedEntry(string fieldKey)
+    {
+        ArgumentNullException.ThrowIfNull(fieldKey);
+        _touchedKeys.Add(fieldKey);
+        _dirtyTracker.Update(Document);
+        RecomputeValidation();
+        RaiseStateChanged();
     }
 
     private Dictionary<string, object?> ReadMapCopy(string fieldKey) =>
@@ -318,6 +445,24 @@ public sealed class EditingSession : IDisposable
         Document[key] = value;
         _touchedKeys.Add(key);
         RunFieldValidator(key, value);
+        RefreshIgnoredKeys();
+        _dirtyTracker.Update(Document);
+        RecomputeValidation();
+        RaiseStateChanged();
+    }
+
+    /// <summary>
+    /// Removes a field entirely (so "off" is absent, not a stored null), recomputes dirty state,
+    /// and notifies subscribers. Used by the nullable-object toggle.
+    /// </summary>
+    /// <param name="key">The field key.</param>
+    public void RemoveFieldValue(string key)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+
+        Document.Remove(key);
+        _touchedKeys.Add(key);
+        RunFieldValidator(key, null);
         RefreshIgnoredKeys();
         _dirtyTracker.Update(Document);
         RecomputeValidation();

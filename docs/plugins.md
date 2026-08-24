@@ -86,7 +86,7 @@ private static async Task<IReadOnlyList<SelectOption>> LoadChannelsAsync(IAction
 
 Set the loader from C# with `[CfLoader("my.loadChannels")]` (see [generation](generation.md)) or inline with `x-loader` on the property schema — both make the field a dropdown.
 
-One loader can serve many fields: use `ctx.CurrentFieldKey` to see which field it's loading for and branch on the path. For example, a repeatable mapping under `connectors/{guid}/customerGroups/{i}/remote` can share a single loader that parses the key to pick the connector and the entity to fetch — instead of one loader per field.
+One loader can serve many fields: use `ctx.CurrentFieldKey` to see which field it's loading for and branch on the path. For example, a repeatable mapping under `connectors/{guid}/mappings/{i}/remote` can share a single loader that parses the key to pick the connector and the entity to fetch — instead of one loader per field.
 
 ## Validators
 

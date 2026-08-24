@@ -23,12 +23,15 @@ public sealed class ActionDefinition
     /// <summary>The category label this action is placed in, or null for all.</summary>
     public string? Category { get; init; }
 
+    /// <summary>The section (sub-tab) this action is restricted to, or null for the whole category.</summary>
+    public string? Section { get; init; }
+
     /// <summary>Placement within the category: <c>top</c> or <c>bottom</c>.</summary>
     public string Position { get; init; } = "bottom";
 
     /// <summary>
     /// When true, the button only appears while an entry of the active collection category is
-    /// selected, and its handler runs for that entry (e.g. a per-shop "test connection"). Without
+    /// selected, and its handler runs for that entry (e.g. a per-entry "test connection"). Without
     /// it, a collection-category action would show with no entry chosen and have nothing to act on.
     /// </summary>
     public bool RequiresEntry { get; init; }

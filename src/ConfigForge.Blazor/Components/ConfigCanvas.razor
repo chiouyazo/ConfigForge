@@ -100,7 +100,7 @@
     private IReadOnlyList<string> UnknownKeys => Session.ParseResult?.UnknownKeys ?? [];
 
     // For a collection category, the fields to render for the selected entry, rebased onto its
-    // path (e.g. shops/{guid}). A plain-object value template is expanded into its child fields
+    // path (e.g. connectors/{guid}). A plain-object value template is expanded into its child fields
     // (like the inline map control); any other template (oneof, scalar) is rendered as one field.
     // Empty when nothing is selected or the map has no value template.
     private IReadOnlyList<FieldDefinition> SelectedEntryFields

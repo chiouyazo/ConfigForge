@@ -43,7 +43,15 @@ public sealed class CategoryElement
 
     /// <summary>
     /// For a collection category, the label of the "add" affordance in the sidebar
-    /// (e.g. <c>Add shop</c>). Sourced from <c>x-cf.categories[label].collectionAddLabel</c>.
+    /// (e.g. <c>Add item</c>). Sourced from <c>x-cf.categories[label].collectionAddLabel</c>.
     /// </summary>
     public string? CollectionAddLabel { get; init; }
+
+    /// <summary>
+    /// For a collection category, the relative key within one entry of a boolean field indicating
+    /// whether the entry is active. When set, the sidebar shows a status dot and dims inactive
+    /// entries. Sourced from <c>x-cf.categories[label].collectionEntryStatus</c>. Null to show no
+    /// status.
+    /// </summary>
+    public string? CollectionEntryStatusKey { get; init; }
 }

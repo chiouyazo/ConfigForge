@@ -104,3 +104,7 @@ The directories are watched: adding or replacing a schema or plugin is picked up
 ## In the browser
 
 Users can pick a schema from the list, paste or upload a config JSON, generate an example or an empty document, edit, and save. Malformed JSON shows an inline editor so they can fix and re-parse it.
+
+The active location is mirrored in the URL fragment, so a view is linkable and survives reload and back/forward: `#<category>` for a category, and `#<category>/<entry-key>` when a collection entry is selected (for example `#connectors/6f9a…`). Opening such a URL selects that category and entry.
+
+Hosting ConfigForge yourself instead of using the built-in page? `ConfigForgeShell` exposes `ActiveCategoryLabel`/`OnCategoryChanged` and `ActiveEntryKey`/`OnEntryChanged` for exactly this: feed the two from your URL and write them back on change.

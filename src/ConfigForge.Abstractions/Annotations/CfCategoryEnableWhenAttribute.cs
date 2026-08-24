@@ -9,7 +9,7 @@ namespace ConfigForge.Abstractions.Annotations;
 /// // "Config" stays locked until a connection has been tested successfully (the test-connection
 /// // action sets an untracked "connectionValid" field the rule watches).
 /// [CfCategoryEnableWhen("Config", "connectionValid", CfCondition.IsSet)]
-/// public sealed record ShopConfig { … }
+/// public sealed record ConnectorConfig { … }
 /// </code>
 /// </example>
 [AttributeUsage(

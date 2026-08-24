@@ -9,7 +9,7 @@ namespace ConfigForge.Abstractions.Annotations;
 /// </summary>
 /// <example>
 /// <code>
-/// [CfAction("test-smtp", Label = "Send test email", Category = "Alerts", Icon = "mail")]
+/// [CfAction("connection.test", Label = "Test connection", Category = "Connection", Icon = "link")]
 /// public sealed record AppConfig { … }
 /// </code>
 /// </example>
@@ -33,6 +33,12 @@ public sealed class CfActionAttribute : Attribute
     /// <summary>The category (sidebar group) the button appears in; null = global.</summary>
     public string? Category { get; init; }
 
+    /// <summary>
+    /// Restricts the button to a single section (sub-tab) of the category: it shows only while that
+    /// sub-tab is the active one. Null shows it across the whole category.
+    /// </summary>
+    public string? Section { get; init; }
+
     /// <summary>Placement within the category: <c>top</c> or <c>bottom</c> (default).</summary>
     public string Position { get; init; } = "bottom";
 
@@ -44,7 +50,7 @@ public sealed class CfActionAttribute : Attribute
 
     /// <summary>
     /// When true, the button only appears while an entry of the (collection) category is selected,
-    /// and its handler runs for that entry — e.g. a per-shop "test connection" action.
+    /// and its handler runs for that entry — e.g. a per-entry "test connection" action.
     /// </summary>
     public bool RequiresEntry { get; init; }
 }

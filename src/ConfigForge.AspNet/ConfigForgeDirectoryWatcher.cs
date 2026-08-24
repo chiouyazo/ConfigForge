@@ -111,7 +111,7 @@ public sealed class ConfigForgeDirectoryWatcher : IHostedService, IDisposable
         string schemaDir = ResolveDirectory(_state.Options.SchemaDirectory);
         string pluginDir = ResolveDirectory(_state.Options.PluginDirectory);
 
-        await LoadAllPluginsAsync(pluginDir).ConfigureAwait(false);
+        await LoadAllPluginsAsync(pluginDir);
         LoadAllSchemas(schemaDir);
         ReconcileDegradedSchemas();
 
@@ -212,7 +212,7 @@ public sealed class ConfigForgeDirectoryWatcher : IHostedService, IDisposable
 
         try
         {
-            await _pluginLoader.LoadFromDirectoryAsync(pluginDir).ConfigureAwait(false);
+            await _pluginLoader.LoadFromDirectoryAsync(pluginDir);
         }
         catch (Exception ex)
             when (ex is IOException or BadImageFormatException or InvalidOperationException)
@@ -283,7 +283,7 @@ public sealed class ConfigForgeDirectoryWatcher : IHostedService, IDisposable
     {
         try
         {
-            await _pluginLoader.LoadAssemblyAsync(e.FullPath).ConfigureAwait(false);
+            await _pluginLoader.LoadAssemblyAsync(e.FullPath);
         }
         catch (Exception ex)
             when (ex is IOException or BadImageFormatException or InvalidOperationException)

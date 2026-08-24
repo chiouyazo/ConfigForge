@@ -99,7 +99,7 @@
                         <label class="cf-label" for="cf-add-type">Type</label>
                         <select id="cf-add-type" class="cf-input cf-select"
                                 value="@_addEntryVariant"
-                                @onchange="@(e => _addEntryVariant = e.Value as string)">
+                                @onchange="@(e => OnAddVariantChanged(e.Value as string))">
                             @foreach (OneOfVariant variant in AddVariants)
                             {
                                 <option value="@variant.DiscriminatorValue">@variant.Label</option>
@@ -107,11 +107,18 @@
                         </select>
                     }
 
-                    <label class="cf-label" for="cf-add-name">Name</label>
-                    <input id="cf-add-name" class="cf-input" type="text"
-                           placeholder="Name"
-                           value="@_addEntryName"
-                           @oninput="@(e => _addEntryName = e.Value as string ?? string.Empty)" />
+                    @if (AddLabelField is { } labelField)
+                    {
+                        <FieldRenderer Field="labelField" />
+                    }
+                    else
+                    {
+                        <label class="cf-label" for="cf-add-name">Name</label>
+                        <input id="cf-add-name" class="cf-input" type="text"
+                               placeholder="Name"
+                               value="@_addEntryName"
+                               @oninput="@(e => _addEntryName = e.Value as string ?? string.Empty)" />
+                    }
 
                     <div class="cf-modal-actions">
                         <button type="button" class="cf-button" @onclick="CancelAddEntry">Cancel</button>

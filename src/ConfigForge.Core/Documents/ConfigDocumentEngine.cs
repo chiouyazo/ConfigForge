@@ -130,7 +130,7 @@ public sealed partial class ConfigDocumentEngine : IConfigDocumentEngine
         ArgumentNullException.ThrowIfNull(schema);
 
         // Recursive: strip untracked fields wherever they live, including inside map entries and
-        // oneof variants (e.g. shops/<guid>/connectionValid), which the flat UntrackedKeys misses.
+        // oneof variants (e.g. connectors/<guid>/connectionValid), which the flat UntrackedKeys misses.
         IReadOnlyList<string> untrackedKeys = SchemaWalker.UntrackedKeys(schema, document);
         if (untrackedKeys.Count == 0)
         {
@@ -223,6 +223,14 @@ public sealed partial class ConfigDocumentEngine : IConfigDocumentEngine
         foreach (KeyValuePair<string, FieldDefinition> entry in schema.Fields)
         {
             if (!document.TryGetValue(entry.Key, out object? value))
+            {
+                continue;
+            }
+
+            // A non-required field left null is "not set", not an invalid value. Treating it as
+            // absent keeps a toggled-off nullable object (or a null from a loaded config) valid, so
+            // callers need no document-wide null strip.
+            if (value is null && !entry.Value.Required)
             {
                 continue;
             }
