@@ -6,6 +6,7 @@
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
     <SelfContained>true</SelfContained>
     <UseAppHost>true</UseAppHost>
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
 
   <ItemGroup>
