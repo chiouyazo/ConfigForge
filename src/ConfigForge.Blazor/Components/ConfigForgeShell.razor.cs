@@ -77,6 +77,19 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
     public IReadOnlyList<ConfigForgeHeaderAction> HeaderActions { get; set; } = [];
 
     /// <summary>
+    /// Hides the header and sidebar entirely, leaving only the active category's content
+    /// edge-to-edge. Meant for an embedding host that shows one specific category as its own
+    /// standalone view (e.g. a single-purpose panel built around just one widget) rather
+    /// than the whole multi-category dashboard. Default false.
+    /// </summary>
+    [Parameter]
+    public bool HideChrome { get; set; }
+
+    /// <summary>Forwarded to <c>ConfigCanvas.HideUnknownFieldsBanner</c>.</summary>
+    [Parameter]
+    public bool HideUnknownFieldsBanner { get; set; }
+
+    /// <summary>
     /// Whether the collapsible code panel (live Config JSON, and the Schema when
     /// <see cref="SchemaJson"/> is supplied) and its header toggle are available.
     /// Default true.

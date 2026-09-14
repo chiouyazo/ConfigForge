@@ -111,6 +111,12 @@ public sealed class ConfigForgeHostState : IConfigForgeHostState
             fields[field.Key] = field.Value;
         }
 
+        IReadOnlyList<CategoryElement> categories = [.. remoteCategories, .. local.Categories];
+        if (Options.TransformCategories is { } transform)
+        {
+            categories = transform(categories);
+        }
+
         return new ConfigSchema
         {
             Id = local.Id,
@@ -120,8 +126,9 @@ public sealed class ConfigForgeHostState : IConfigForgeHostState
             // Remote categories come first, the host's own local categories last: a host that only
             // has one local category to manage local state (e.g. an instance list) alongside a
             // RemoteInstances-driven dashboard wants that category to stay last regardless of how
-            // many remote instances come and go, not buried before them.
-            Categories = [.. remoteCategories, .. local.Categories],
+            // many remote instances come and go, not buried before them. TransformCategories may
+            // reorder this further.
+            Categories = categories,
             Fields = fields,
             Actions = [.. remoteActions, .. local.Actions],
             UntrackedKeys = local.UntrackedKeys,

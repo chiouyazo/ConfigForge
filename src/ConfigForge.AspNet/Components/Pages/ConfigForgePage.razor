@@ -52,6 +52,8 @@
                           SchemaJson="@_schemaJson"
                           ShowCodePanel="State.Options.ShowCodePanel"
                           HeaderActions="State.Options.HeaderActions"
+                          HideChrome="Fullscreen"
+                          HideUnknownFieldsBanner="HideUnknownFieldsBanner"
                           ActiveCategoryKey="@_activeCategoryKey"
                           OnCategoryChanged="OnCategoryChangedAsync"
                           ActiveEntryKey="@_activeEntryKey"
@@ -66,6 +68,49 @@
 
 @code {
     private sealed record SchemaChoice(string Id, string Label, string? FilePath);
+
+    /// <summary>
+    /// Comma-separated <see cref="CategoryElement.EffectiveKey"/> values to hide from this page
+    /// load only - the shared schema in <see cref="IConfigForgeHostState"/> is never mutated, so
+    /// every other viewer keeps seeing the full category list. Meant for an embedding host (e.g.
+    /// a native app shell) that wants a locked-down subset without a second, separately
+    /// maintained schema.
+    /// </summary>
+    [SupplyParameterFromQuery]
+    [Parameter]
+    public string? HideCategories { get; set; }
+
+    /// <summary>
+    /// Comma-separated <see cref="CategoryElement.EffectiveKey"/> allowlist: only these
+    /// categories render, everything else is dropped, for this page load only (same
+    /// per-request scoping as <see cref="HideCategories"/>, which this is the inverse of - if
+    /// both are set, a category must pass both filters). Meant for an embedding host that wants
+    /// a single curated view (e.g. "just the Jobs and Logs categories") without a second,
+    /// separately maintained schema.
+    /// </summary>
+    [SupplyParameterFromQuery]
+    [Parameter]
+    public string? ShowOnlyCategories { get; set; }
+
+    /// <summary>
+    /// Hides the header and sidebar chrome, showing only the active category's content
+    /// edge-to-edge. Meant to be combined with <see cref="ShowOnlyCategories"/> naming exactly
+    /// one category, for a single-purpose embed (e.g. a host application showing just one
+    /// widget's own settings inline) - see <see cref="ConfigForgeShell.HideChrome"/>.
+    /// </summary>
+    [SupplyParameterFromQuery]
+    [Parameter]
+    public bool Fullscreen { get; set; }
+
+    /// <summary>
+    /// Suppresses the "N unrecognised fields" banner - see
+    /// <c>ConfigForgeShell.HideUnknownFieldsBanner</c>. Meant for a curated
+    /// <see cref="ShowOnlyCategories"/> embed that already knows it will not round-trip every
+    /// field of the underlying document and does not want that surfaced as a warning.
+    /// </summary>
+    [SupplyParameterFromQuery]
+    [Parameter]
+    public bool HideUnknownFieldsBanner { get; set; }
 
     private readonly List<SchemaChoice> _schemaChoices = [];
 
@@ -272,7 +317,7 @@
 
         try
         {
-            _schema = ResolveSchema(choice);
+            _schema = ApplyShowOnlyCategories(ApplyHideCategories(ResolveSchema(choice)));
             string schemaPath =
                 choice.FilePath ?? Path.Combine(ResolveSchemaDirectory(), $"{choice.Id}.json");
             _schemaJson = File.Exists(schemaPath) ? File.ReadAllText(schemaPath) : null;
@@ -301,6 +346,71 @@
         }
 
         throw new SchemaParseException($"Schema '{choice.Id}' is no longer available.");
+    }
+
+    // Returns a new ConfigSchema instance with matching categories removed rather than mutating
+    // the passed-in one, which for a cached schema is the exact same shared instance every other
+    // viewer reads from (ResolveSchema above).
+    private ConfigSchema ApplyHideCategories(ConfigSchema schema)
+    {
+        if (string.IsNullOrWhiteSpace(HideCategories))
+        {
+            return schema;
+        }
+
+        HashSet<string> hidden = new(
+            HideCategories.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+            StringComparer.Ordinal
+        );
+        if (hidden.Count == 0)
+        {
+            return schema;
+        }
+
+        return new ConfigSchema
+        {
+            Id = schema.Id,
+            Name = schema.Name,
+            Version = schema.Version,
+            PluginId = schema.PluginId,
+            Categories = [.. schema.Categories.Where(c => !hidden.Contains(c.EffectiveKey))],
+            Fields = schema.Fields,
+            Actions = schema.Actions,
+            UntrackedKeys = schema.UntrackedKeys,
+        };
+    }
+
+    // Same non-mutating-copy rationale as ApplyHideCategories above, inverted to an allowlist.
+    private ConfigSchema ApplyShowOnlyCategories(ConfigSchema schema)
+    {
+        if (string.IsNullOrWhiteSpace(ShowOnlyCategories))
+        {
+            return schema;
+        }
+
+        HashSet<string> allowed = new(
+            ShowOnlyCategories.Split(
+                ',',
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
+            ),
+            StringComparer.Ordinal
+        );
+        if (allowed.Count == 0)
+        {
+            return schema;
+        }
+
+        return new ConfigSchema
+        {
+            Id = schema.Id,
+            Name = schema.Name,
+            Version = schema.Version,
+            PluginId = schema.PluginId,
+            Categories = [.. schema.Categories.Where(c => allowed.Contains(c.EffectiveKey))],
+            Fields = schema.Fields,
+            Actions = schema.Actions,
+            UntrackedKeys = schema.UntrackedKeys,
+        };
     }
 
     private async Task SeedInitialDocumentAsync()

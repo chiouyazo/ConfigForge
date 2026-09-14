@@ -1,32 +1,38 @@
 @implements IDisposable
 
 <ThemeProvider Theme="Theme">
-    <div class="cf-shell">
-        <AppHeader Title="@HeaderTitle"
-                   Subtitle="@HeaderSubtitle"
-                   Logo="Theme.Logo"
-                   Mode="Mode"
-                   HeaderActions="HeaderActions"
-                   ShowGenerateButton="ShowGenerateButton"
-                   ShowCodePanel="ShowCodePanel"
-                   CodePanelOpen="_codePanelOpen"
-                   OnToggleCodePanel="ToggleCodePanel"
-                   OnGenerate="ShowGenerateDialog" />
+    <div class="cf-shell @(HideChrome ? "cf-shell-bare" : string.Empty)">
+        @if (!HideChrome)
+        {
+            <AppHeader Title="@HeaderTitle"
+                       Subtitle="@HeaderSubtitle"
+                       Logo="Theme.Logo"
+                       Mode="Mode"
+                       HeaderActions="HeaderActions"
+                       ShowGenerateButton="ShowGenerateButton"
+                       ShowCodePanel="ShowCodePanel"
+                       CodePanelOpen="_codePanelOpen"
+                       OnToggleCodePanel="ToggleCodePanel"
+                       OnGenerate="ShowGenerateDialog" />
+        }
 
         <div class="cf-body">
-            <aside class="cf-sidebar">
-                <SidebarNav Categories="Categories"
-                            ActiveIndex="Session.ActiveCategoryIndex"
-                            Logo="Theme.Logo"
-                            OnSelect="OnSelectCategory"
-                            OnSelectEntry="OnSelectCollectionEntry"
-                            OnAddEntry="OnAddCollectionEntry"
-                            OnRemoveEntry="OnRemoveCollectionEntry"
-                            OnRefreshEntries="OnRefreshCollectionEntriesAsync" />
-            </aside>
+            @if (!HideChrome)
+            {
+                <aside class="cf-sidebar">
+                    <SidebarNav Categories="Categories"
+                                ActiveIndex="Session.ActiveCategoryIndex"
+                                Logo="Theme.Logo"
+                                OnSelect="OnSelectCategory"
+                                OnSelectEntry="OnSelectCollectionEntry"
+                                OnAddEntry="OnAddCollectionEntry"
+                                OnRemoveEntry="OnRemoveCollectionEntry"
+                                OnRefreshEntries="OnRefreshCollectionEntriesAsync" />
+                </aside>
+            }
 
             <main class="cf-main">
-                <ConfigCanvas />
+                <ConfigCanvas HideUnknownFieldsBanner="HideUnknownFieldsBanner" />
                 <ActionButtonBar />
             </main>
 

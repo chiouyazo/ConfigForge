@@ -6,13 +6,15 @@ using ConfigForge.Hub.Core.Instances;
 namespace ConfigForge.Hub.Web.Instances;
 
 /// <summary>
-/// Backs the "hub" schema's <c>OnLoad</c>/<c>OnSave</c>: the only category the Hub itself owns
-/// is "Manage Instances" (<see cref="HubLocalSchema"/>), so this is the whole document. Saving
-/// also updates the live <see cref="AspNetConfigForgeOptions.RemoteInstances"/> list, which the
-/// generic RemoteInstances poller picks up on its next cycle.
+/// Backs the "hub" schema's <c>OnLoad</c>/<c>OnSave</c> for its two local concerns (Security,
+/// Manage Instances). Saving also updates the live state the rest of the Hub reads on every
+/// request: <see cref="AspNetConfigForgeOptions.RemoteInstances"/> (the generic RemoteInstances
+/// poller) and <see cref="HubAuthState"/> (the Basic Auth middleware).
 /// </summary>
 internal sealed class HubDocumentProvider(
     LocalInstanceStore localStore,
+    HubSecurityStore securityStore,
+    HubAuthState authState,
     AspNetConfigForgeOptions options
 )
 {
@@ -28,7 +30,8 @@ internal sealed class HubDocumentProvider(
         }
 
         Dictionary<string, StoredInstance> stored = await localStore.LoadAsync();
-        return BuildDocumentJson(stored);
+        string? password = await securityStore.LoadPasswordAsync();
+        return BuildDocumentJson(stored, password);
     }
 
     public async Task SaveAsync(string schemaId, string json)
@@ -38,9 +41,11 @@ internal sealed class HubDocumentProvider(
             return;
         }
 
-        Dictionary<string, StoredInstance> stored = ParseDocumentJson(json);
+        (Dictionary<string, StoredInstance> stored, string? password) = ParseDocumentJson(json);
         ThrowIfDuplicateNames(stored);
         await localStore.SaveAsync(stored);
+        await securityStore.SavePasswordAsync(password);
+        authState.PasswordProtected = password;
 
         options.RemoteInstances =
         [
@@ -65,10 +70,14 @@ internal sealed class HubDocumentProvider(
         }
     }
 
-    private static string BuildDocumentJson(Dictionary<string, StoredInstance> stored)
+    private static string BuildDocumentJson(
+        Dictionary<string, StoredInstance> stored,
+        string? password
+    )
     {
         var root = new JsonObject
         {
+            [HubLocalSchema.PasswordKey] = password,
             [HubLocalSchema.ManageInstancesCollectionKey] = new JsonObject(
                 stored.Select(kv =>
                     KeyValuePair.Create<string, JsonNode?>(
@@ -93,14 +102,16 @@ internal sealed class HubDocumentProvider(
         return root.ToJsonString(SerializerOptions);
     }
 
-    private static Dictionary<string, StoredInstance> ParseDocumentJson(string json)
+    private static (Dictionary<string, StoredInstance>, string?) ParseDocumentJson(string json)
     {
         Dictionary<string, StoredInstance> result = new(StringComparer.Ordinal);
 
         JsonNode? root = JsonNode.Parse(json);
+        string? password = root?[HubLocalSchema.PasswordKey]?.GetValue<string>();
+
         if (root?[HubLocalSchema.ManageInstancesCollectionKey] is not JsonObject instances)
         {
-            return result;
+            return (result, password);
         }
 
         foreach (KeyValuePair<string, JsonNode?> entry in instances)
@@ -129,6 +140,6 @@ internal sealed class HubDocumentProvider(
             };
         }
 
-        return result;
+        return (result, password);
     }
 }

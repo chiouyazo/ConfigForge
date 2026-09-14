@@ -1,5 +1,6 @@
 using ConfigForge.Abstractions;
 using ConfigForge.AspNet.RemoteInstances;
+using ConfigForge.Core.Schema;
 
 namespace ConfigForge.AspNet;
 
@@ -139,4 +140,20 @@ public sealed class AspNetConfigForgeOptions
     /// <see cref="RemoteInstances"/> is empty. Default 30.
     /// </summary>
     public int RemoteInstancePollIntervalSeconds { get; set; } = 30;
+
+    /// <summary>
+    /// Optional final transform applied to the merged category list - every mirrored
+    /// <see cref="RemoteInstances"/> category plus the host's own local ones, in their built-in
+    /// order and grouping - right before it reaches the schema. Lets a host reorder, regroup
+    /// under different <see cref="CategoryElement.GroupLabel"/>s, or drop categories entirely
+    /// (e.g. a curated sidebar layout the host's own UI lets an admin edit), without
+    /// ConfigForge.AspNet itself knowing anything about that host-specific concept. Applied on
+    /// every <see cref="IConfigForgeHostState.SetRemoteContent"/> and
+    /// <see cref="IConfigForgeHostState.UpsertSchema"/> call. Null (default) leaves the merged
+    /// list untouched.
+    /// </summary>
+    public Func<
+        IReadOnlyList<CategoryElement>,
+        IReadOnlyList<CategoryElement>
+    >? TransformCategories { get; set; }
 }

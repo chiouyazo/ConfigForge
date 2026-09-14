@@ -21,7 +21,10 @@
     else
     {
         <InvalidConfigBanner ParseResult="Session.ParseResult" />
-        <UnknownKeysBanner Keys="UnknownKeys" />
+        @if (!HideUnknownFieldsBanner)
+        {
+            <UnknownKeysBanner Keys="UnknownKeys" />
+        }
 
         @if (ActiveCategory is null)
         {
@@ -77,6 +80,15 @@
 </div>
 
 @code {
+    /// <summary>
+    /// Suppresses the "N unrecognised fields" banner, for an embedding host that already knows
+    /// its curated view will not round-trip every field of the underlying document (e.g. a
+    /// single-category <c>Fullscreen</c> embed) and does not want that surfaced as a warning.
+    /// Default false.
+    /// </summary>
+    [Parameter]
+    public bool HideUnknownFieldsBanner { get; set; }
+
     [Inject]
     private EditingSession Session { get; set; } = default!;
 

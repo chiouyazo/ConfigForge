@@ -12,13 +12,18 @@ public sealed class HubDocumentProviderTests : IDisposable
         $"cf-hub-doc-{Guid.NewGuid():N}.json"
     );
 
+    private HubDocumentProvider CreateProvider(AspNetConfigForgeOptions options) =>
+        new(
+            new LocalInstanceStore(_tempFile),
+            new HubSecurityStore($"{_tempFile}.security"),
+            new HubAuthState(),
+            options
+        );
+
     [Fact]
     public async Task LoadAsync_UnknownSchemaId_ReturnsNull()
     {
-        var provider = new HubDocumentProvider(
-            new LocalInstanceStore(_tempFile),
-            new AspNetConfigForgeOptions()
-        );
+        var provider = CreateProvider(new AspNetConfigForgeOptions());
 
         string? result = await provider.LoadAsync("not-hub");
 
@@ -29,7 +34,7 @@ public sealed class HubDocumentProviderTests : IDisposable
     public async Task SaveThenLoad_RoundTripsDocument_AndUpdatesRemoteInstancesLive()
     {
         var options = new AspNetConfigForgeOptions();
-        var provider = new HubDocumentProvider(new LocalInstanceStore(_tempFile), options);
+        var provider = CreateProvider(options);
 
         const string document = """
             {
@@ -53,8 +58,7 @@ public sealed class HubDocumentProviderTests : IDisposable
     public async Task SaveAsync_UnknownSchemaId_DoesNotTouchStoreOrOptions()
     {
         var options = new AspNetConfigForgeOptions();
-        var localStore = new LocalInstanceStore(_tempFile);
-        var provider = new HubDocumentProvider(localStore, options);
+        var provider = CreateProvider(options);
 
         await provider.SaveAsync("not-hub", """{ "instances": {} }""");
 
@@ -66,7 +70,7 @@ public sealed class HubDocumentProviderTests : IDisposable
     public async Task SaveAsync_TwoInstancesSameNameDifferentCase_ThrowsAndDoesNotPersist()
     {
         var options = new AspNetConfigForgeOptions();
-        var provider = new HubDocumentProvider(new LocalInstanceStore(_tempFile), options);
+        var provider = CreateProvider(options);
 
         const string document = """
             {
@@ -89,7 +93,7 @@ public sealed class HubDocumentProviderTests : IDisposable
     public async Task SaveAsync_TwoInstancesDifferentNamesSameBaseUrl_IsAllowed()
     {
         var options = new AspNetConfigForgeOptions();
-        var provider = new HubDocumentProvider(new LocalInstanceStore(_tempFile), options);
+        var provider = CreateProvider(options);
 
         const string document = """
             {
