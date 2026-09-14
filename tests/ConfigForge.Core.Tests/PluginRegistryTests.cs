@@ -71,6 +71,37 @@ public sealed class PluginRegistryTests
     }
 
     [Fact]
+    public void RegisterAndResolveCollectionLoader()
+    {
+        var registry = new PluginRegistry();
+        Func<IActionContext, CancellationToken, Task<IReadOnlyList<ConfigDocument>>> handler = (
+            _,
+            _
+        ) => Task.FromResult<IReadOnlyList<ConfigDocument>>([]);
+
+        registry.RegisterCollectionLoader("connectors", handler);
+
+        Assert.True(
+            registry.TryGetCollectionLoader(
+                "connectors",
+                out Func<
+                    IActionContext,
+                    CancellationToken,
+                    Task<IReadOnlyList<ConfigDocument>>
+                >? resolved
+            )
+        );
+        Assert.Same(handler, resolved);
+    }
+
+    [Fact]
+    public void TryGetCollectionLoader_UnknownKey_ReturnsFalse()
+    {
+        var registry = new PluginRegistry();
+        Assert.False(registry.TryGetCollectionLoader("missing", out _));
+    }
+
+    [Fact]
     public void LoadEmbedded_TracksPluginAndAppliesRegistrations()
     {
         var registry = new PluginRegistry();

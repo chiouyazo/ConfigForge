@@ -33,7 +33,24 @@
             {
                 <p class="cf-category-description">@ActiveCategory.Description</p>
             }
-            @if (SelectedEntryFields is { Count: > 0 } entryFields)
+            @if (IsActiveCollectionLoaderBacked)
+            {
+                @if (SelectedEntryReadOnlyFields is { Count: > 0 } readOnlyFields)
+                {
+                    <dl class="cf-readonly-entry">
+                        @foreach ((string label, string value) in readOnlyFields)
+                        {
+                            <dt>@label</dt>
+                            <dd>@value</dd>
+                        }
+                    </dl>
+                }
+                else
+                {
+                    <p class="cf-empty">Select an entry from the sidebar, or refresh.</p>
+                }
+            }
+            else if (SelectedEntryFields is { Count: > 0 } entryFields)
             {
                 @foreach (FieldDefinition entryField in entryFields)
                 {
@@ -132,6 +149,45 @@
             }
 
             return [template.WithKey(entryPath)];
+        }
+    }
+
+    private bool IsActiveCollectionLoaderBacked =>
+        ActiveCategory?.CollectionKey is { Length: > 0 } collectionKey
+        && Session.IsCollectionLoaderBacked(collectionKey);
+
+    // For a loader-backed collection category, the read-only (label, value) pairs of the selected
+    // entry, read live from the loaded entries rather than the document. Empty when nothing is
+    // selected or the map has no value template.
+    private IReadOnlyList<(string Label, string Value)> SelectedEntryReadOnlyFields
+    {
+        get
+        {
+            if (
+                ActiveCategory?.CollectionKey is not { Length: > 0 } collectionKey
+                || Session.GetSelectedEntry(collectionKey) is not { Length: > 0 } entryKey
+                || !Schema.Fields.TryGetValue(collectionKey, out FieldDefinition? mapField)
+                || mapField.ValueField is not { } template
+            )
+            {
+                return [];
+            }
+
+            IReadOnlyList<FieldDefinition> fields =
+                string.Equals(template.ControlType, "object", StringComparison.Ordinal)
+                && template.Children.Count > 0
+                    ? template.Children
+                    : [template];
+
+            return
+            [
+                .. fields.Select(entryField => (
+                    string.IsNullOrEmpty(entryField.Title) ? entryField.Key : entryField.Title,
+                    Session
+                        .GetCollectionEntryValue(collectionKey, entryKey, entryField.Key)
+                        ?.ToString() ?? string.Empty
+                )),
+            ];
         }
     }
 }

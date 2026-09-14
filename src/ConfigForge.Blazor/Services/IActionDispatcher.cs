@@ -27,4 +27,17 @@ public interface IActionDispatcher
     /// <param name="context">The action context handed to the handler.</param>
     /// <returns>The loaded options, or an empty list on any failure.</returns>
     Task<IReadOnlyList<SelectOption>> DispatchLoaderAsync(string loaderId, IActionContext context);
+
+    /// <summary>
+    /// Invokes the collection loader handler registered under <paramref name="collectionKey"/> and
+    /// returns its entries. A missing handler, cancellation, or failure yields an empty list rather
+    /// than throwing.
+    /// </summary>
+    /// <param name="collectionKey">The map field key the loader was registered for.</param>
+    /// <param name="context">The action context handed to the handler.</param>
+    /// <returns>The loaded entries, or an empty list on any failure.</returns>
+    Task<IReadOnlyList<ConfigDocument>> DispatchCollectionLoaderAsync(
+        string collectionKey,
+        IActionContext context
+    );
 }

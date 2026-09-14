@@ -36,6 +36,24 @@ public interface IPluginCatalog
     /// <returns>True when a validator with the id is registered.</returns>
     bool TryGetValidator(string id, out Func<object?, ValidationResult>? handler);
 
+    /// <summary>Attempts to resolve a registered collection loader.</summary>
+    /// <param name="collectionKey">The map field key the loader was registered for.</param>
+    /// <param name="handler">The handler if found.</param>
+    /// <returns>True when a collection loader is registered for the key.</returns>
+    bool TryGetCollectionLoader(
+        string collectionKey,
+        out Func<IActionContext, CancellationToken, Task<IReadOnlyList<ConfigDocument>>>? handler
+    );
+
     /// <summary>The identifiers of all plugins that have been loaded.</summary>
     IReadOnlyCollection<string> RegisteredPluginIds { get; }
+
+    /// <summary>Attempts to resolve a registered capability implementation method.</summary>
+    /// <param name="actionId">The action id, <c>{contractFullName}.{methodName}</c>.</param>
+    /// <param name="handler">The handler if found.</param>
+    /// <returns>True when a capability method with the id is registered.</returns>
+    bool TryGetCapabilityAction(
+        string actionId,
+        out Func<IReadOnlyList<object?>, CancellationToken, Task<object?>>? handler
+    );
 }

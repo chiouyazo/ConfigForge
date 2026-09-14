@@ -65,3 +65,37 @@ jobs:
           Get-ChildItem artifacts/*.nupkg | ForEach-Object {
             dotnet nuget push $_.FullName --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
           }
+
+  publish-hub-installer:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Derive version from tag
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          "PACKAGE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Publish ConfigForge Hub (self-contained win-x64)
+        run: dotnet publish src/ConfigForge.Hub.Web -c Release -r win-x64 --self-contained -o installer/publish -p:Version=${{ env.PACKAGE_VERSION }}
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DAppVersion=${{ env.PACKAGE_VERSION }}" installer\ConfigForgeHub.iss
+
+      - name: Attach installer to the GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: installer/Output/*.exe

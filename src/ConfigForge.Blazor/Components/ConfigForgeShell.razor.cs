@@ -92,13 +92,15 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
     public string? SchemaJson { get; set; }
 
     /// <summary>
-    /// The label of the category to activate. Lets a host deep-link to a category
-    /// (e.g. from the URL). Matched case-insensitively against the schema categories.
+    /// The <see cref="CategoryElement.EffectiveKey"/> of the category to activate. Lets a host
+    /// deep-link to a category (e.g. from the URL). Matched case-insensitively against the schema
+    /// categories' effective keys, so two categories sharing a display <c>Label</c> (e.g. merged
+    /// from several sources) resolve unambiguously.
     /// </summary>
     [Parameter]
-    public string? ActiveCategoryLabel { get; set; }
+    public string? ActiveCategoryKey { get; set; }
 
-    /// <summary>Raised with the new category label when the active category changes.</summary>
+    /// <summary>Raised with the new category's effective key when the active category changes.</summary>
     [Parameter]
     public EventCallback<string> OnCategoryChanged { get; set; }
 
@@ -139,6 +141,12 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
     [Inject]
     private IJsonFormsRuleEvaluator RuleEvaluator { get; set; } = default!;
 
+    [Inject]
+    private IActionDispatcher Dispatcher { get; set; } = default!;
+
+    [Inject]
+    private IServiceProvider Services { get; set; } = default!;
+
     private ThemeDefinition Theme => ThemeProvider.GetTheme();
 
     private bool HasSchemaJson => !string.IsNullOrEmpty(SchemaJson);
@@ -177,9 +185,64 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
         EnsureActiveCategoryUsable();
     }
 
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await EnsureActiveCollectionLoadedAsync();
+        }
+    }
+
+    private async Task EnsureActiveCollectionLoadedAsync()
+    {
+        IReadOnlyList<CategoryElement> categories = Schema.Categories;
+        int active = Session.ActiveCategoryIndex;
+        if (
+            active < 0
+            || active >= categories.Count
+            || categories[active].CollectionKey is not { Length: > 0 } collectionKey
+            || !Session.IsCollectionLoaderBacked(collectionKey)
+        )
+        {
+            return;
+        }
+
+        await RefreshCollectionAsync(collectionKey);
+        if (
+            string.IsNullOrEmpty(Session.GetSelectedEntry(collectionKey))
+            && Session.GetCollectionEntryKeys(collectionKey) is { Count: > 0 } keys
+        )
+        {
+            await SetSelectedEntryAsync(collectionKey, keys[0]);
+        }
+    }
+
+    private async Task RefreshCollectionAsync(string collectionKey)
+    {
+        ActionContext context = new(Session, Services, collectionKey);
+        IReadOnlyList<ConfigDocument> entries = await Dispatcher.DispatchCollectionLoaderAsync(
+            collectionKey,
+            context
+        );
+        Session.SetCollectionEntries(collectionKey, entries);
+    }
+
+    private async Task OnRefreshCollectionEntriesAsync(string collectionKey)
+    {
+        await RefreshCollectionAsync(collectionKey);
+
+        string? selected = Session.GetSelectedEntry(collectionKey);
+        IReadOnlyList<string> keys = Session.GetCollectionEntryKeys(collectionKey);
+        if (selected is not null && !keys.Contains(selected, StringComparer.Ordinal))
+        {
+            await SetSelectedEntryAsync(collectionKey, keys.Count > 0 ? keys[0] : null);
+        }
+    }
+
     private void SyncActiveCategoryFromLabel()
     {
-        if (string.IsNullOrEmpty(ActiveCategoryLabel))
+        if (string.IsNullOrEmpty(ActiveCategoryKey))
         {
             return;
         }
@@ -189,8 +252,8 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
         {
             if (
                 string.Equals(
-                    categories[i].Label,
-                    ActiveCategoryLabel,
+                    categories[i].EffectiveKey,
+                    ActiveCategoryKey,
                     StringComparison.OrdinalIgnoreCase
                 )
             )
@@ -268,16 +331,31 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
             index >= 0
             && index < categories.Count
             && categories[index].CollectionKey is { Length: > 0 } collectionKey
-            && string.IsNullOrEmpty(Session.GetSelectedEntry(collectionKey))
-            && FirstEntryKey(collectionKey) is { } firstEntry
         )
         {
-            await SetSelectedEntryAsync(collectionKey, firstEntry);
+            if (Session.IsCollectionLoaderBacked(collectionKey))
+            {
+                await RefreshCollectionAsync(collectionKey);
+                if (
+                    string.IsNullOrEmpty(Session.GetSelectedEntry(collectionKey))
+                    && Session.GetCollectionEntryKeys(collectionKey) is { Count: > 0 } keys
+                )
+                {
+                    await SetSelectedEntryAsync(collectionKey, keys[0]);
+                }
+            }
+            else if (
+                string.IsNullOrEmpty(Session.GetSelectedEntry(collectionKey))
+                && FirstEntryKey(collectionKey) is { } firstEntry
+            )
+            {
+                await SetSelectedEntryAsync(collectionKey, firstEntry);
+            }
         }
 
         if (OnCategoryChanged.HasDelegate && index >= 0 && index < categories.Count)
         {
-            await OnCategoryChanged.InvokeAsync(categories[index].Label);
+            await OnCategoryChanged.InvokeAsync(categories[index].EffectiveKey);
         }
     }
 
@@ -361,6 +439,16 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
 
     private void OnAddCollectionEntry(int categoryIndex)
     {
+        if (
+            categoryIndex >= 0
+            && categoryIndex < Schema.Categories.Count
+            && Schema.Categories[categoryIndex].CollectionKey is { Length: > 0 } key
+            && Session.IsCollectionLoaderBacked(key)
+        )
+        {
+            return;
+        }
+
         _addEntryCategoryIndex = categoryIndex;
         _addEntryName = string.Empty;
         _addEntryVariant = AddVariants.Count > 0 ? AddVariants[0].DiscriminatorValue : null;
@@ -533,6 +621,7 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
         if (
             _removeEntryRef is { } entry
             && Schema.Categories[entry.CategoryIndex].CollectionKey is { Length: > 0 } collectionKey
+            && !Session.IsCollectionLoaderBacked(collectionKey)
             && Session.RemoveMapEntry(collectionKey, entry.EntryKey)
             && string.Equals(
                 Session.GetSelectedEntry(collectionKey),

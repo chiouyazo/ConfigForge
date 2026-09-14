@@ -11,6 +11,10 @@
 {
     <DynamicComponent Type="PluginComponentType" Parameters="PluginParameters" />
 }
+else if (IsCapabilityWidget)
+{
+    <CapabilityWidgetHost Catalog="CapabilityWidgetCatalog" ControlType="@Field.ControlType" Control="Descriptor" Document="Document" OnFieldChanged="OnFieldChanged" />
+}
 else
 {
     switch (Field.ControlType)

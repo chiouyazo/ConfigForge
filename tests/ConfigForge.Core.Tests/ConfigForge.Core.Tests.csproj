@@ -4,7 +4,7 @@
     <OutputType>Library</OutputType>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
-    <NoWarn>$(NoWarn);CA1707</NoWarn>
+    <NoWarn>$(NoWarn);CA1707;CA2263;CA2025</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,5 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/ConfigForge.Core/ConfigForge.Core.csproj" />
+    <ProjectReference Include="../../plugins/ConfigForge.Plugin.CapabilityFixture/ConfigForge.Plugin.CapabilityFixture.csproj" />
+    <ProjectReference Include="../../plugins/ConfigForge.Plugin.CapabilityWidgetFixture/ConfigForge.Plugin.CapabilityWidgetFixture.csproj" />
   </ItemGroup>
 </Project>

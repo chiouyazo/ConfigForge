@@ -66,6 +66,7 @@
                 ? schema.Categories[Session.ActiveCategoryIndex]
                 : null;
         string? activeLabel = activeCategory?.Label;
+        string? activeKey = activeCategory?.EffectiveKey;
 
         string? entryFieldKey = SelectedEntryFieldKey();
         bool hasSelectedEntry = entryFieldKey is not null;
@@ -80,10 +81,19 @@
         List<ActionDefinition> matches = [];
         foreach (ActionDefinition action in schema.Actions)
         {
-            bool global = string.IsNullOrEmpty(action.Category);
+            // A category identified only by its display Label (the common, JSON-declared case)
+            // matches an action the same way: by Category against Label. A category that carries a
+            // CategoryKey (assembled in code, e.g. merged from several sources with a possible
+            // Label collision) is matched by that identity instead, via the action's own
+            // CategoryKey - never by Label alone, so two same-labelled categories cannot resolve
+            // each other's actions.
+            string? actionTargetKey = action.CategoryKey is { Length: > 0 }
+                ? action.CategoryKey
+                : action.Category;
+            bool global = string.IsNullOrEmpty(actionTargetKey);
             bool inCategory =
-                activeLabel is not null
-                && string.Equals(action.Category, activeLabel, StringComparison.Ordinal);
+                activeKey is not null
+                && string.Equals(actionTargetKey, activeKey, StringComparison.Ordinal);
             bool positionMatch = string.Equals(action.Position, position, StringComparison.OrdinalIgnoreCase);
             bool sectionMatch =
                 string.IsNullOrEmpty(action.Section)

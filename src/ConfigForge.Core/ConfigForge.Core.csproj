@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../ConfigForge.Abstractions/ConfigForge.Abstractions.csproj" />
+    <ProjectReference Include="../ConfigForge.Core.CapabilityProxy/ConfigForge.Core.CapabilityProxy.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -15,6 +16,21 @@
     <PackageReference
       Include="Microsoft.Extensions.DependencyInjection.Abstractions"
       Version="9.0.0"
+    />
+  </ItemGroup>
+
+  <!--
+    CapabilityLoader loads a second, private copy of ConfigForge.Core.CapabilityProxy.dll into
+    each capability assembly's own collectible AssemblyLoadContext (see CapabilityLoader.
+    CapabilityLoadContext.GetProxyBaseType) — DispatchProxy.Create's generated type is only
+    collectible when its base type's assembly is, and the capability interface always is. The
+    normal ProjectReference above still applies too, for typeof(RemoteCapabilityDispatchProxy).
+  -->
+  <ItemGroup>
+    <EmbeddedResource
+      Include="../ConfigForge.Core.CapabilityProxy/bin/$(Configuration)/net10.0/ConfigForge.Core.CapabilityProxy.dll"
+      LogicalName="ConfigForge.Core.CapabilityProxy.dll"
+      Link="ConfigForge.Core.CapabilityProxy.dll"
     />
   </ItemGroup>
 </Project>

@@ -98,4 +98,61 @@ public sealed class ActionDispatcherTests
         Assert.Single(options);
         Assert.Equal("a", options[0].Value);
     }
+
+    [Fact]
+    public async Task DispatchCollectionLoaderAsync_UnregisteredKey_ReturnsEmptyAndDoesNotThrow()
+    {
+        var registry = new PluginRegistry();
+        ActionDispatcher dispatcher = Create(registry);
+
+        IReadOnlyList<ConfigDocument> entries = await dispatcher.DispatchCollectionLoaderAsync(
+            "missing",
+            new FakeActionContext()
+        );
+
+        Assert.Empty(entries);
+    }
+
+    [Fact]
+    public async Task DispatchCollectionLoaderAsync_RegisteredLoader_ReturnsItsEntries()
+    {
+        var registry = new PluginRegistry();
+        registry.RegisterCollectionLoader(
+            "connectors",
+            (_, _) =>
+                Task.FromResult<IReadOnlyList<ConfigDocument>>([
+                    new ConfigDocument(new Dictionary<string, object?> { ["name"] = "a" }),
+                ])
+        );
+        ActionDispatcher dispatcher = Create(registry);
+
+        IReadOnlyList<ConfigDocument> entries = await dispatcher.DispatchCollectionLoaderAsync(
+            "connectors",
+            new FakeActionContext()
+        );
+
+        Assert.Single(entries);
+        Assert.Equal("a", entries[0]["name"]);
+    }
+
+    [Fact]
+    public async Task DispatchCollectionLoaderAsync_HandlerThrows_ToastsDangerAndReturnsEmpty()
+    {
+        var registry = new PluginRegistry();
+        registry.RegisterCollectionLoader(
+            "boom",
+            (_, _) => throw new InvalidOperationException("boom")
+        );
+        ActionDispatcher dispatcher = Create(registry);
+        var context = new FakeActionContext();
+
+        IReadOnlyList<ConfigDocument> entries = await dispatcher.DispatchCollectionLoaderAsync(
+            "boom",
+            context
+        );
+
+        Assert.Empty(entries);
+        Assert.Single(context.Toasts);
+        Assert.Equal(ToastSeverity.Danger, context.Toasts[0].Severity);
+    }
 }

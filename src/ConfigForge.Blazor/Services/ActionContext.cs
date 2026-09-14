@@ -29,7 +29,7 @@ public sealed class ActionContext : IActionContext
     }
 
     /// <inheritdoc />
-    public string this[string fieldKey] => _session.Document.GetString(fieldKey);
+    public string this[string fieldKey] => _session.GetFieldString(fieldKey);
 
     /// <inheritdoc />
     public string CurrentFieldKey { get; }

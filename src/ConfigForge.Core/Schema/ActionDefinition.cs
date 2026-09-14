@@ -23,6 +23,16 @@ public sealed class ActionDefinition
     /// <summary>The category label this action is placed in, or null for all.</summary>
     public string? Category { get; init; }
 
+    /// <summary>
+    /// The category identity this action is placed in, matched against a category's
+    /// <see cref="CategoryElement.EffectiveKey"/>. Null falls back to matching by
+    /// <see cref="Category"/> against the category's <see cref="CategoryElement.Label"/>, exactly as
+    /// before this was added. A host that assembles actions in code for a category it set
+    /// <see cref="CategoryElement.CategoryKey"/> on must set the same value here, or the action
+    /// will not resolve to that category.
+    /// </summary>
+    public string? CategoryKey { get; init; }
+
     /// <summary>The section (sub-tab) this action is restricted to, or null for the whole category.</summary>
     public string? Section { get; init; }
 

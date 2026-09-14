@@ -1,5 +1,6 @@
 using ConfigForge.Abstractions;
 using ConfigForge.AspNet.Components;
+using ConfigForge.AspNet.Endpoints;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
@@ -112,6 +113,11 @@ public static class ApplicationBuilderExtensions
         endpoints.MapStaticAssets();
 
         endpoints.MapRazorComponents<Host>().AddInteractiveServerRenderMode();
+
+        string prefix = app
+            .ApplicationServices.GetRequiredService<IConfigForgeHostState>()
+            .Options.PathPrefix;
+        endpoints.MapDashboardEndpoints(prefix);
 
         return app;
     }

@@ -107,4 +107,4 @@ Users can pick a schema from the list, paste or upload a config JSON, generate a
 
 The active location is mirrored in the URL fragment, so a view is linkable and survives reload and back/forward: `#<category>` for a category, and `#<category>/<entry-key>` when a collection entry is selected (for example `#connectors/6f9a…`). Opening such a URL selects that category and entry.
 
-Hosting ConfigForge yourself instead of using the built-in page? `ConfigForgeShell` exposes `ActiveCategoryLabel`/`OnCategoryChanged` and `ActiveEntryKey`/`OnEntryChanged` for exactly this: feed the two from your URL and write them back on change.
+Hosting ConfigForge yourself instead of using the built-in page? `ConfigForgeShell` exposes `ActiveCategoryKey`/`OnCategoryChanged` and `ActiveEntryKey`/`OnEntryChanged` for exactly this: feed the two from your URL and write them back on change. The key is a category's `EffectiveKey` (its `CategoryKey` when set, otherwise its `Label`), so two categories sharing a display label (e.g. merged from several sources) still resolve unambiguously.

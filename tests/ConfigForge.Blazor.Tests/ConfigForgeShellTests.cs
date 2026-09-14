@@ -440,7 +440,7 @@ public sealed class ConfigForgeShellTests : BunitContext
             parameters
                 .Add(p => p.Schema, schema)
                 .Add(p => p.Document, document)
-                .Add(p => p.ActiveCategoryLabel, "Connector")
+                .Add(p => p.ActiveCategoryKey, "Connector")
                 .Add(p => p.ActiveEntryKey, "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
         );
 

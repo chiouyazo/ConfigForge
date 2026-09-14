@@ -9,6 +9,8 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="10.0.0" />
+    <PackageReference Include="bunit" Version="2.7.2" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -21,6 +23,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-pgww-w46g-26qg" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../../src/ConfigForge.AspNet/ConfigForge.AspNet.csproj" />
+    <ProjectReference Include="../../src/ConfigForge.Blazor/ConfigForge.Blazor.csproj" />
+    <ProjectReference Include="../../plugins/ConfigForge.Plugin.CapabilityWidgetFixture/ConfigForge.Plugin.CapabilityWidgetFixture.csproj" />
   </ItemGroup>
 </Project>

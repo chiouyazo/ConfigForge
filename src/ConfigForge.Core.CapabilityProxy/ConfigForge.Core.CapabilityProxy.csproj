@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <PackageId>ConfigForge.Core.CapabilityProxy</PackageId>
+    <Description>
+      The DispatchProxy base type CapabilityLoader loads a private copy of into each capability
+      assembly's own collectible load context. References only ConfigForge.Abstractions, on
+      purpose — see the remarks on RemoteCapabilityDispatchProxy.
+    </Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../ConfigForge.Abstractions/ConfigForge.Abstractions.csproj" />
+  </ItemGroup>
+</Project>
