@@ -99,6 +99,23 @@ public sealed partial class FieldRenderer : ComponentBase, IDisposable
         }
     }
 
+    /// <summary>
+    /// The optional capability widget catalog, present only when the host has remote instances
+    /// enabled. <see cref="CapabilityWidgetHost"/> re-resolves the registration for
+    /// <see cref="FieldDefinition.ControlType"/> from this catalog on every one of its own
+    /// refreshes rather than once here, since the backing capability assembly can be reloaded
+    /// (redeployed) at any time.
+    /// </summary>
+    private ICapabilityWidgetCatalog? CapabilityWidgetCatalog =>
+        Services.GetService(typeof(ICapabilityWidgetCatalog)) as ICapabilityWidgetCatalog;
+
+    /// <summary>
+    /// True when <see cref="Field"/>'s control type names a capability widget a remote instance's
+    /// own capability assembly registered (never a local <see cref="IPluginCatalog"/> control).
+    /// </summary>
+    private bool IsCapabilityWidget =>
+        CapabilityWidgetCatalog?.TryGetWidget(Field.ControlType, out _) ?? false;
+
     private Dictionary<string, object> PluginParameters =>
         new(StringComparer.Ordinal)
         {

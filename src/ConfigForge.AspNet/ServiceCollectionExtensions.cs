@@ -1,6 +1,8 @@
 using ConfigForge.Abstractions;
+using ConfigForge.AspNet.RemoteInstances;
 using ConfigForge.Blazor.Services;
 using ConfigForge.Core;
+using ConfigForge.Core.Plugins;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
@@ -67,6 +69,27 @@ public static class ServiceCollectionExtensions
         {
             services.AddHttpClient();
             services.AddHostedService<RemoteSchemaPoller>();
+        }
+
+        if (options.RemoteInstances.Count > 0)
+        {
+            services.AddHttpClient();
+            services.AddSingleton(TimeProvider.System);
+            services.AddSingleton<RemoteInstanceStateStore>();
+            services.AddSingleton<IRemoteInstanceClientFactory, RemoteInstanceClientFactory>();
+            services.AddSingleton<IRemoteInstancePoller, RemoteInstancePoller>();
+            services.AddSingleton<
+                IRemoteInstancePollingCoordinator,
+                RemoteInstancePollingCoordinator
+            >();
+            services.AddSingleton<IRemoteActionRelay, RemoteActionRelay>();
+            services.AddSingleton<RemoteFieldKeyMap>();
+            services.AddSingleton<RemoteDocumentMergeService>();
+            services.AddSingleton<CapabilityWidgetCatalog>();
+            services.AddSingleton<ICapabilityWidgetCatalog>(sp =>
+                sp.GetRequiredService<CapabilityWidgetCatalog>()
+            );
+            services.AddHostedService<RemoteInstancesHostedService>();
         }
 
         services.AddRazorComponents().AddInteractiveServerComponents();

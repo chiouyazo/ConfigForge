@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../ConfigForge.AspNet/ConfigForge.AspNet.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ConfigForge.Hub.Web" />
+    <InternalsVisibleTo Include="ConfigForge.Hub.Core.Tests" />
+  </ItemGroup>
+</Project>

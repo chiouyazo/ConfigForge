@@ -1,0 +1,29 @@
+@using ConfigForge.Abstractions
+@attribute [CapabilityWidget("fixture.logviewer")]
+@implements IConfigControl
+@inject IWidgetFixtureCapability Capability
+
+<ul class="cf-fixture-log-viewer">
+    @foreach (string entry in _entries)
+    {
+        <li>@entry</li>
+    }
+</ul>
+
+@code {
+    private IReadOnlyList<string> _entries = [];
+
+    [Parameter]
+    [EditorRequired]
+    public ControlDescriptor Control { get; set; } = new();
+
+    [Parameter]
+    [EditorRequired]
+    public ConfigDocument Document { get; set; } = new();
+
+    [Parameter]
+    public EventCallback<FieldChangedArgs> OnFieldChanged { get; set; }
+
+    protected override async Task OnInitializedAsync() =>
+        _entries = await Capability.GetEntriesAsync();
+}

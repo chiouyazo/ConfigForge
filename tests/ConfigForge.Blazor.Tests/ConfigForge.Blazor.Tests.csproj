@@ -27,5 +27,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/ConfigForge.Blazor/ConfigForge.Blazor.csproj" />
+    <ProjectReference Include="../../src/ConfigForge.Core/ConfigForge.Core.csproj" />
+    <ProjectReference Include="../../plugins/ConfigForge.Plugin.CapabilityWidgetFixture/ConfigForge.Plugin.CapabilityWidgetFixture.csproj" />
   </ItemGroup>
 </Project>

@@ -43,4 +43,21 @@ public interface IConfigForgeHostState
     /// <param name="schemaId">The id of the schema to query.</param>
     /// <returns><see langword="true"/> when the schema is degraded.</returns>
     bool IsDegraded(string schemaId);
+
+    /// <summary>
+    /// Replaces the categories/fields/actions contributed by
+    /// <see cref="AspNetConfigForgeOptions.RemoteInstances"/> and re-applies them on top of every
+    /// schema currently registered via <see cref="UpsertSchema"/>. Safe to call repeatedly (each
+    /// call replaces the previous remote content rather than accumulating), so it is called again
+    /// after every poll cycle. Composes with, and never replaces, a schema's own local categories,
+    /// fields, and actions.
+    /// </summary>
+    /// <param name="categories">The remote-sourced categories to append to every schema.</param>
+    /// <param name="fields">The remote-sourced field definitions to merge into every schema.</param>
+    /// <param name="actions">The remote-sourced actions to append to every schema.</param>
+    void SetRemoteContent(
+        IReadOnlyList<CategoryElement> categories,
+        IReadOnlyDictionary<string, FieldDefinition> fields,
+        IReadOnlyList<ActionDefinition> actions
+    );
 }

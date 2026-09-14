@@ -3,8 +3,10 @@
 @rendermode InteractiveServer
 @implements IDisposable
 @using System.Text
+@using ConfigForge.AspNet.RemoteInstances
 @using ConfigForge.Core.Documents
 @using ConfigForge.Core.Schema
+@using Microsoft.Extensions.DependencyInjection
 @using Microsoft.JSInterop
 @inject IConfigForgeHostState State
 @inject IJsonFormsSchemaParser Parser
@@ -12,6 +14,7 @@
 @inject IConfigDocumentGenerator Generator
 @inject ConfigSecretGateway Secrets
 @inject IJSRuntime JS
+@inject IServiceProvider Services
 
 <div class="cf-host">
     @if (State.Options.ShowSchemaPicker && _schemaChoices.Count >= 1)
@@ -49,7 +52,7 @@
                           SchemaJson="@_schemaJson"
                           ShowCodePanel="State.Options.ShowCodePanel"
                           HeaderActions="State.Options.HeaderActions"
-                          ActiveCategoryLabel="@_activeCategoryLabel"
+                          ActiveCategoryKey="@_activeCategoryKey"
                           OnCategoryChanged="OnCategoryChangedAsync"
                           ActiveEntryKey="@_activeEntryKey"
                           OnEntryChanged="OnEntryChangedAsync"
@@ -73,7 +76,7 @@
     private string? _rawJson;
     private string? _schemaJson;
     private string? _loadError;
-    private string? _activeCategoryLabel;
+    private string? _activeCategoryKey;
     private string? _activeEntryKey;
 
     private int _loadGeneration;
@@ -119,21 +122,21 @@
 
         // The fragment is "<category-slug>" or "<category-slug>/<entry-key>".
         string[] parts = slug.Split('/', 2);
-        string? label = _schema
-            .Categories.Select(c => c.Label)
-            .FirstOrDefault(l =>
-                string.Equals(Slugify(l), parts[0], StringComparison.OrdinalIgnoreCase)
+        string? key = _schema
+            .Categories.Select(c => c.EffectiveKey)
+            .FirstOrDefault(k =>
+                string.Equals(Slugify(k), parts[0], StringComparison.OrdinalIgnoreCase)
             );
-        if (label is null)
+        if (key is null)
         {
             return;
         }
 
         string? entryKey = parts.Length > 1 ? Uri.UnescapeDataString(parts[1]) : null;
         bool changed = false;
-        if (!string.Equals(label, _activeCategoryLabel, StringComparison.Ordinal))
+        if (!string.Equals(key, _activeCategoryKey, StringComparison.Ordinal))
         {
-            _activeCategoryLabel = label;
+            _activeCategoryKey = key;
             changed = true;
         }
 
@@ -149,9 +152,9 @@
         }
     }
 
-    private async Task OnCategoryChangedAsync(string label)
+    private async Task OnCategoryChangedAsync(string categoryKey)
     {
-        _activeCategoryLabel = label;
+        _activeCategoryKey = categoryKey;
         await WriteHashAsync();
     }
 
@@ -163,13 +166,13 @@
 
     private async Task WriteHashAsync()
     {
-        if (!_hashWired || _activeCategoryLabel is null)
+        if (!_hashWired || _activeCategoryKey is null)
         {
             return;
         }
 
-        string hash = Slugify(_activeCategoryLabel);
-        if (_activeEntryKey is { Length: > 0 } entry && IsCollectionCategory(_activeCategoryLabel))
+        string hash = Slugify(_activeCategoryKey);
+        if (_activeEntryKey is { Length: > 0 } entry && IsCollectionCategory(_activeCategoryKey))
         {
             hash += "/" + Uri.EscapeDataString(entry);
         }
@@ -177,10 +180,10 @@
         await JS.InvokeVoidAsync("configForgeHost.writeHash", hash);
     }
 
-    private bool IsCollectionCategory(string label) =>
+    private bool IsCollectionCategory(string categoryKey) =>
         _schema
             ?.Categories.FirstOrDefault(c =>
-                string.Equals(c.Label, label, StringComparison.Ordinal)
+                string.Equals(c.EffectiveKey, categoryKey, StringComparison.Ordinal)
             )
             ?.CollectionKey
         is { Length: > 0 };
@@ -314,6 +317,7 @@
             {
                 persisted = Secrets.RedactForEditor(_schema, persisted);
                 ConfigDocumentParseResult result = Engine.Parse(persisted, _schema);
+                Services.GetService<RemoteDocumentMergeService>()?.ApplyRemoteValues(result.Document);
                 SetDocument(result.Document, result, persisted);
                 return;
             }
@@ -334,6 +338,22 @@
         if (_schema is null || State.Options.OnSave is null)
         {
             return;
+        }
+
+        RemoteDocumentMergeService? mergeService = Services.GetService<RemoteDocumentMergeService>();
+        if (mergeService is not null)
+        {
+            RemoteDocumentSaveOutcome remoteOutcome = await mergeService.SplitAndSaveAsync(
+                document,
+                CancellationToken.None
+            );
+            if (!remoteOutcome.Success)
+            {
+                RemoteDocumentSaveFailure first = remoteOutcome.Failures[0];
+                throw new InvalidOperationException(
+                    $"Instance '{first.InstanceName}' rejected the save: {first.Error}"
+                );
+            }
         }
 
         string payload = Engine.Serialize(document, _schema);

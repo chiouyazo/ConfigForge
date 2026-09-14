@@ -15,6 +15,10 @@
     }
 
     <ul class="cf-category-list">
+        @{
+            string? lastGroupLabel = null;
+            bool hasRenderedCategory = false;
+        }
         @for (int i = 0; i < Categories.Count; i++)
         {
             int index = i;
@@ -34,6 +38,22 @@
                 continue;
             }
 
+            if (!string.Equals(category.GroupLabel, lastGroupLabel, StringComparison.Ordinal))
+            {
+                if (hasRenderedCategory)
+                {
+                    <li class="cf-category-group-separator" role="presentation"></li>
+                }
+
+                lastGroupLabel = category.GroupLabel;
+                if (category.GroupLabel is { Length: > 0 } groupLabel)
+                {
+                    <li class="cf-category-group-heading" role="presentation">@groupLabel</li>
+                }
+            }
+
+            hasRenderedCategory = true;
+
             <li>
                 <button type="button"
                         class="cf-category-item @(index == ActiveIndex ? "cf-active" : string.Empty) @(enabled ? string.Empty : "cf-disabled")"
@@ -49,6 +69,7 @@
 
                 @if (enabled && category.CollectionKey is { Length: > 0 } collectionKey)
                 {
+                    bool loaderBacked = Session.IsCollectionLoaderBacked(collectionKey);
                     <ul class="cf-collection-list">
                         @foreach (string entryKey in EntryKeys(collectionKey))
                         {
@@ -67,22 +88,37 @@
                                     }
                                     <span class="cf-collection-entry-label">@EntryLabel(category, collectionKey, key)</span>
                                 </button>
-                                <button type="button"
-                                        class="cf-collection-remove"
-                                        title="Remove"
-                                        aria-label="Remove"
-                                        @onclick="@(() => OnRemoveEntry.InvokeAsync(new CollectionEntryRef(index, key)))">
-                                    &times;
-                                </button>
+                                @if (!loaderBacked)
+                                {
+                                    <button type="button"
+                                            class="cf-collection-remove"
+                                            title="Remove"
+                                            aria-label="Remove"
+                                            @onclick="@(() => OnRemoveEntry.InvokeAsync(new CollectionEntryRef(index, key)))">
+                                        &times;
+                                    </button>
+                                }
                             </li>
                         }
                         <li>
-                            <button type="button"
-                                    class="cf-collection-add"
-                                    @onclick="@(() => OnAddEntry.InvokeAsync(index))">
-                                <span class="cf-collection-add-icon" aria-hidden="true">+</span>
-                                <span>@(string.IsNullOrEmpty(category.CollectionAddLabel) ? "Add" : category.CollectionAddLabel)</span>
-                            </button>
+                            @if (loaderBacked)
+                            {
+                                <button type="button"
+                                        class="cf-collection-refresh"
+                                        title="Refresh"
+                                        @onclick="@(() => OnRefreshEntries.InvokeAsync(collectionKey))">
+                                    <span>Refresh</span>
+                                </button>
+                            }
+                            else
+                            {
+                                <button type="button"
+                                        class="cf-collection-add"
+                                        @onclick="@(() => OnAddEntry.InvokeAsync(index))">
+                                    <span class="cf-collection-add-icon" aria-hidden="true">+</span>
+                                    <span>@(string.IsNullOrEmpty(category.CollectionAddLabel) ? "Add" : category.CollectionAddLabel)</span>
+                                </button>
+                            }
                         </li>
                     </ul>
                 }
@@ -129,6 +165,13 @@
     [Parameter]
     public EventCallback<CollectionEntryRef> OnRemoveEntry { get; set; }
 
+    /// <summary>
+    /// Raised with a collection's map field key when the user asks to re-invoke its collection
+    /// loader. Only shown for a loader-backed collection.
+    /// </summary>
+    [Parameter]
+    public EventCallback<string> OnRefreshEntries { get; set; }
+
     /// <summary>An optional logo to render in the sidebar.</summary>
     [Parameter]
     public LogoDefinition? Logo { get; set; }
@@ -154,12 +197,12 @@
         || category.Label.Contains(_filter, StringComparison.OrdinalIgnoreCase);
 
     private IReadOnlyList<string> EntryKeys(string collectionKey) =>
-        Session.Document[collectionKey] is IDictionary<string, object?> map ? [.. map.Keys] : [];
+        Session.GetCollectionEntryKeys(collectionKey);
 
     private string EntryLabel(CategoryElement category, string collectionKey, string entryKey)
     {
         if (category.CollectionEntryLabelKey is { Length: > 0 } labelKey
-            && Session.Document[$"{collectionKey}/{entryKey}/{labelKey}"] is string label
+            && Session.GetCollectionEntryValue(collectionKey, entryKey, labelKey) is string label
             && !string.IsNullOrWhiteSpace(label))
         {
             return label;
@@ -171,5 +214,5 @@
 
     private bool EntryInactive(CategoryElement category, string collectionKey, string entryKey) =>
         category.CollectionEntryStatusKey is { Length: > 0 } statusKey
-        && Session.Document[$"{collectionKey}/{entryKey}/{statusKey}"] is not true;
+        && Session.GetCollectionEntryValue(collectionKey, entryKey, statusKey) is not true;
 }

@@ -5,20 +5,28 @@
     <Platform Name="x86" />
   </Configurations>
   <Folder Name="/plugins/">
+    <Project Path="plugins/ConfigForge.Plugin.CapabilityFixture/ConfigForge.Plugin.CapabilityFixture.csproj" />
+    <Project Path="plugins/ConfigForge.Plugin.CapabilityWidgetFixture/ConfigForge.Plugin.CapabilityWidgetFixture.csproj" />
     <Project Path="plugins/ConfigForge.Plugin.Template/ConfigForge.Plugin.Template.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/ConfigForge.Abstractions/ConfigForge.Abstractions.csproj" />
+    <Project Path="src/ConfigForge.Analyzers/ConfigForge.Analyzers.csproj" />
     <Project Path="src/ConfigForge.AspNet/ConfigForge.AspNet.csproj" />
     <Project Path="src/ConfigForge.Blazor/ConfigForge.Blazor.csproj" />
     <Project Path="src/ConfigForge.Build/ConfigForge.Build.csproj" />
     <Project Path="src/ConfigForge.Core/ConfigForge.Core.csproj" />
+    <Project Path="src/ConfigForge.Core.CapabilityProxy/ConfigForge.Core.CapabilityProxy.csproj" />
+    <Project Path="src/ConfigForge.Hub.Core/ConfigForge.Hub.Core.csproj" />
+    <Project Path="src/ConfigForge.Hub.Web/ConfigForge.Hub.Web.csproj" />
     <Project Path="src/ConfigForge.Standalone/ConfigForge.Standalone.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/ConfigForge.Analyzers.Tests/ConfigForge.Analyzers.Tests.csproj" />
     <Project Path="tests/ConfigForge.AspNet.Tests/ConfigForge.AspNet.Tests.csproj" />
     <Project Path="tests/ConfigForge.Blazor.Tests/ConfigForge.Blazor.Tests.csproj" />
     <Project Path="tests/ConfigForge.Core.Tests/ConfigForge.Core.Tests.csproj" />
+    <Project Path="tests/ConfigForge.Hub.Core.Tests/ConfigForge.Hub.Core.Tests.csproj" />
     <Project Path="tests/ConfigForge.Integration.Tests/ConfigForge.Integration.Tests.csproj" />
     <Project Path="tests/ConfigForge.Standalone.Tests/ConfigForge.Standalone.Tests.csproj" />
   </Folder>

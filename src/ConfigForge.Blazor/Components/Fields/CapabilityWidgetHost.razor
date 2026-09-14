@@ -1,0 +1,8 @@
+@if (_error is { } error)
+{
+<p class="cf-field-error" role="alert">@error</p>
+}
+else
+{
+<div class="cf-capability-widget">@((MarkupString)(_html ?? string.Empty))</div>
+}

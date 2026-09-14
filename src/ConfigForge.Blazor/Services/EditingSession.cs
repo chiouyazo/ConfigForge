@@ -1,3 +1,4 @@
+using System.Globalization;
 using ConfigForge.Abstractions;
 using ConfigForge.Core.Documents;
 using ConfigForge.Core.Plugins;
@@ -23,6 +24,9 @@ public sealed class EditingSession : IDisposable
     private readonly Dictionary<string, bool> _fieldEnabled = new(StringComparer.Ordinal);
 
     private readonly Dictionary<string, string?> _fieldErrors = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, IReadOnlyList<ConfigDocument>> _collectionEntries = new(
+        StringComparer.Ordinal
+    );
     private readonly Dictionary<string, string> _selectedEntries = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _selectedSections = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _selectedGroupTabs = new(StringComparer.Ordinal);
@@ -121,6 +125,7 @@ public sealed class EditingSession : IDisposable
         _fieldLoading.Clear();
         _fieldEnabled.Clear();
         _fieldErrors.Clear();
+        _collectionEntries.Clear();
         _selectedEntries.Clear();
         _selectedSections.Clear();
         _selectedGroupTabs.Clear();
@@ -249,6 +254,122 @@ public sealed class EditingSession : IDisposable
         }
 
         RaiseStateChanged();
+    }
+
+    /// <summary>
+    /// True when a collection loader is registered for the map field key, so the category it backs
+    /// renders read-only from live entries instead of the saved document.
+    /// </summary>
+    /// <param name="collectionKey">The map field key.</param>
+    public bool IsCollectionLoaderBacked(string collectionKey)
+    {
+        ArgumentNullException.ThrowIfNull(collectionKey);
+        return _pluginCatalog.TryGetCollectionLoader(collectionKey, out _);
+    }
+
+    /// <summary>
+    /// Replaces the live entries most recently loaded for a loader-backed collection. Called after
+    /// dispatching the registered collection loader (initial load or a manual refresh).
+    /// </summary>
+    /// <param name="collectionKey">The map field key.</param>
+    /// <param name="entries">The freshly loaded entries.</param>
+    public void SetCollectionEntries(string collectionKey, IReadOnlyList<ConfigDocument> entries)
+    {
+        ArgumentNullException.ThrowIfNull(collectionKey);
+        ArgumentNullException.ThrowIfNull(entries);
+        _collectionEntries[collectionKey] = entries;
+        RaiseStateChanged();
+    }
+
+    /// <summary>
+    /// Returns the entry keys of a collection category: the synthetic index keys of the most
+    /// recently loaded entries for a loader-backed collection (empty before the first load), or the
+    /// backing map's keys for a document-backed one.
+    /// </summary>
+    /// <param name="collectionKey">The map field key.</param>
+    public IReadOnlyList<string> GetCollectionEntryKeys(string collectionKey)
+    {
+        ArgumentNullException.ThrowIfNull(collectionKey);
+
+        if (
+            _collectionEntries.TryGetValue(
+                collectionKey,
+                out IReadOnlyList<ConfigDocument>? entries
+            )
+        )
+        {
+            return
+            [
+                .. Enumerable
+                    .Range(0, entries.Count)
+                    .Select(i => i.ToString(CultureInfo.InvariantCulture)),
+            ];
+        }
+
+        return Document[collectionKey] is IDictionary<string, object?> map ? [.. map.Keys] : [];
+    }
+
+    /// <summary>
+    /// Reads a relative field value of one collection entry, from the loaded live entries of a
+    /// loader-backed collection or from the document of a document-backed one, uniformly.
+    /// </summary>
+    /// <param name="collectionKey">The map field key.</param>
+    /// <param name="entryKey">The entry key, as returned by <see cref="GetCollectionEntryKeys"/>.</param>
+    /// <param name="relativeKey">The field key relative to the entry.</param>
+    public object? GetCollectionEntryValue(
+        string collectionKey,
+        string entryKey,
+        string relativeKey
+    )
+    {
+        ArgumentNullException.ThrowIfNull(collectionKey);
+        ArgumentNullException.ThrowIfNull(entryKey);
+        ArgumentNullException.ThrowIfNull(relativeKey);
+
+        if (
+            _collectionEntries.TryGetValue(
+                collectionKey,
+                out IReadOnlyList<ConfigDocument>? entries
+            )
+        )
+        {
+            return int.TryParse(entryKey, out int index) && index >= 0 && index < entries.Count
+                ? entries[index][relativeKey]
+                : null;
+        }
+
+        return Document[$"{collectionKey}/{entryKey}/{relativeKey}"];
+    }
+
+    /// <summary>
+    /// Resolves the string representation of a field path, routing a path rooted at a loader-backed
+    /// collection through its live entries instead of the document. Used by <see cref="IActionContext"/>
+    /// so a <c>RequiresEntry</c> action reads the selected row the same way whether the category is
+    /// document- or loader-backed.
+    /// </summary>
+    /// <param name="path">The field path.</param>
+    public string GetFieldString(string path)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+
+        string[] segments = path.Split('/');
+        if (
+            segments.Length >= 3
+            && _collectionEntries.TryGetValue(
+                segments[0],
+                out IReadOnlyList<ConfigDocument>? entries
+            )
+        )
+        {
+            if (!int.TryParse(segments[1], out int index) || index < 0 || index >= entries.Count)
+            {
+                return string.Empty;
+            }
+
+            return entries[index].GetString(string.Join('/', segments[2..]));
+        }
+
+        return Document.GetString(path);
     }
 
     /// <summary>Returns the active section (sub-tab) of a oneof field, or null when unset.</summary>

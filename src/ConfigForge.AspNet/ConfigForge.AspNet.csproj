@@ -23,4 +23,9 @@
   <ItemGroup>
     <ProjectReference Include="../ConfigForge.Blazor/ConfigForge.Blazor.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ConfigForge.AspNet.Tests" />
+    <InternalsVisibleTo Include="ConfigForge.Hub.Core.Tests" />
+  </ItemGroup>
 </Project>

@@ -1,4 +1,5 @@
 using ConfigForge.Abstractions;
+using ConfigForge.AspNet.RemoteInstances;
 
 namespace ConfigForge.AspNet;
 
@@ -121,4 +122,21 @@ public sealed class AspNetConfigForgeOptions
         OnLoad = store.LoadAsync;
         return this;
     }
+
+    /// <summary>
+    /// Other ConfigForge-hosted instances to poll and merge into this host's schema(s). Each
+    /// entry's reachable collection categories are mirrored, grouped under a sidebar heading
+    /// naming that instance, alongside whatever this host's own <see cref="OnLoad"/>/local schema
+    /// already contributes - this option only adds to a schema, it never replaces one. Action
+    /// buttons in a mirrored category relay to that instance using its own configured credentials,
+    /// regardless of whether another connected instance happens to expose an identically-labelled
+    /// category. Empty by default (the feature is entirely opt-in).
+    /// </summary>
+    public IReadOnlyList<RemoteInstanceOptions> RemoteInstances { get; set; } = [];
+
+    /// <summary>
+    /// How often (seconds) every <see cref="RemoteInstances"/> entry is re-polled. Ignored when
+    /// <see cref="RemoteInstances"/> is empty. Default 30.
+    /// </summary>
+    public int RemoteInstancePollIntervalSeconds { get; set; } = 30;
 }

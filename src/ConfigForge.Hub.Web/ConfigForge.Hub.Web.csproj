@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <!-- A Windows Service needs a real .exe, not "dotnet ConfigForge.Hub.Web.dll" - the installer
+         publishes with these so the service's binPath can point straight at the apphost. -->
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <SelfContained>true</SelfContained>
+    <UseAppHost>true</UseAppHost>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../ConfigForge.Hub.Core/ConfigForge.Hub.Core.csproj" />
+    <ProjectReference Include="../ConfigForge.AspNet/ConfigForge.AspNet.csproj" />
+  </ItemGroup>
+
+  <!-- App_Data is where a running instance keeps its own instances.json (created at first run
+       by LocalInstanceStore) - never source, so it must never be picked up by the SDK's default
+       content globs and shipped in a build or publish output. -->
+  <ItemGroup>
+    <Content Remove="App_Data/**" />
+    <None Remove="App_Data/**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ConfigForge.Hub.Web.Tests" />
+    <InternalsVisibleTo Include="ConfigForge.Hub.Core.Tests" />
+  </ItemGroup>
+</Project>

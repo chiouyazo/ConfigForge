@@ -15,6 +15,16 @@ public sealed class CategoryElement
     /// <summary>An optional description sourced from <c>x-cf.categories</c>.</summary>
     public string? Description { get; init; }
 
+    /// <summary>
+    /// An optional heading a contiguous run of categories is grouped under in the sidebar
+    /// (e.g. the name of the product a category originated from). Categories with the same
+    /// <see cref="GroupLabel"/> that appear next to each other in <see cref="ConfigSchema.Categories"/>
+    /// render under one shared heading; a category with no group renders with no heading, exactly as
+    /// before this was added. Sourced from <c>x-cf.categories[label].group</c>, or set directly by a
+    /// host that builds its schema in code.
+    /// </summary>
+    public string? GroupLabel { get; init; }
+
     /// <summary>The UI elements contained in this category.</summary>
     public IReadOnlyList<UiElement> Elements { get; init; } = [];
 
@@ -54,4 +64,20 @@ public sealed class CategoryElement
     /// status.
     /// </summary>
     public string? CollectionEntryStatusKey { get; init; }
+
+    /// <summary>
+    /// A stable identity for this category distinct from its display <see cref="Label"/>, used to
+    /// resolve which <see cref="ActionDefinition"/>s belong to it. Null for an ordinary
+    /// JSON-schema-declared category, which is identified by <see cref="Label"/> alone (via
+    /// <see cref="EffectiveKey"/>) exactly as before this was added. A host that assembles
+    /// categories in code (e.g. merging same-labelled categories from several sources) sets this to
+    /// a value unique per source so two categories sharing a <see cref="Label"/> are not confused.
+    /// </summary>
+    public string? CategoryKey { get; init; }
+
+    /// <summary>
+    /// The identity used to match <see cref="ActionDefinition"/>s to this category:
+    /// <see cref="CategoryKey"/> when set, otherwise <see cref="Label"/>.
+    /// </summary>
+    public string EffectiveKey => CategoryKey is { Length: > 0 } ? CategoryKey : Label;
 }
