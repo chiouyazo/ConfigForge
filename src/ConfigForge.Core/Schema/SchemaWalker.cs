@@ -122,17 +122,20 @@ public static class SchemaWalker
 
             case "object":
             case "nullable-object":
-                foreach (FieldDefinition child in field.Children)
+                if (document.ContainsKey(key))
                 {
-                    foreach (
-                        (string Key, FieldDefinition Field) pair in Descend(
-                            child,
-                            JsonFormsScope.JoinKey(key, child.Key),
-                            document
-                        )
-                    )
+                    foreach (FieldDefinition child in field.Children)
                     {
-                        yield return pair;
+                        foreach (
+                            (string Key, FieldDefinition Field) pair in Descend(
+                                child,
+                                JsonFormsScope.JoinKey(key, child.Key),
+                                document
+                            )
+                        )
+                        {
+                            yield return pair;
+                        }
                     }
                 }
 

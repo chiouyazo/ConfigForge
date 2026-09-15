@@ -63,6 +63,60 @@ public sealed class EntryValidationTests
         );
     }
 
+    // smtp: a nullable-object with a required child, same shape as an optional SMTP block.
+    private const string NullableObjectSchemaJson = """
+        {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "smtp": {
+                "type": ["object", "null"],
+                "x-control": "nullable-object",
+                "required": ["host"],
+                "properties": {
+                  "host": { "type": "string", "title": "Host" }
+                }
+              }
+            }
+          },
+          "x-cf": { "id": "ev-null", "name": "EntryValidationNullableObject" }
+        }
+        """;
+
+    private static ConfigSchema NullableObjectSchema() =>
+        new JsonFormsSchemaParser().Parse(NullableObjectSchemaJson);
+
+    [Fact]
+    public void Parse_RequiredChildOfAbsentNullableObject_IsNotReportedMissing()
+    {
+        // The "smtp" section was never toggled on, so it's absent from the document entirely -
+        // its required "host" must not block validation.
+        const string doc = "{}";
+
+        ConfigDocumentParseResult result = new ConfigDocumentEngine().Parse(
+            doc,
+            NullableObjectSchema()
+        );
+
+        Assert.True(result.IsValid);
+        Assert.DoesNotContain("smtp/host", result.MissingRequiredKeys, StringComparer.Ordinal);
+    }
+
+    [Fact]
+    public void Parse_RequiredChildOfPresentNullableObject_IsStillReportedMissing()
+    {
+        // Once toggled on, the required child is enforced as normal.
+        const string doc = """{ "smtp": {} }""";
+
+        ConfigDocumentParseResult result = new ConfigDocumentEngine().Parse(
+            doc,
+            NullableObjectSchema()
+        );
+
+        Assert.False(result.IsValid);
+        Assert.Contains("smtp/host", result.MissingRequiredKeys, StringComparer.Ordinal);
+    }
+
     [Fact]
     public void Serialize_StripsUntrackedFieldInsideEntry()
     {
