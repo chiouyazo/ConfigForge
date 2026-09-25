@@ -615,7 +615,7 @@ body {
     color: var(--cf-text-secondary);
 }
 .cf-section-heading:first-child { margin-top: 0; padding-top: 0; border-top: none; }
-.cf-map-key { flex: 0 0 12rem; align-self: flex-start; }
+.cf-map-key { flex: 0 0 auto; width: 12rem; max-width: 100%; align-self: flex-start; }
 .cf-arrayobject-remove, .cf-map-remove { flex: 0 0 auto; align-self: flex-start; }
 .cf-arrayobject-add, .cf-map-add { align-self: flex-start; }
 
@@ -630,6 +630,9 @@ body {
     padding-right: 0.75rem;
 }
 .cf-map-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
     text-align: left;
     padding: 0.4rem 0.6rem;
     border: none;
@@ -638,13 +641,13 @@ body {
     color: var(--cf-text-primary);
     cursor: pointer;
     font-size: 0.9rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
     transition: background var(--cf-transition, 0.15s), color var(--cf-transition, 0.15s);
 }
+.cf-map-nav-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cf-map-nav-item:hover { background: var(--cf-background); }
 .cf-map-nav-active { background: var(--cf-primary); color: var(--cf-surface); }
+.cf-map-nav-item.cf-inactive .cf-map-nav-label { opacity: 0.55; }
+.cf-map-nav-active .cf-collection-status.cf-on { background: var(--cf-surface); }
 .cf-map-detail {
     flex: 1;
     min-width: 0;

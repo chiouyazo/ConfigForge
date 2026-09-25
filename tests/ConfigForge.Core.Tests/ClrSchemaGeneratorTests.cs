@@ -412,6 +412,52 @@ public sealed class ClrSchemaGeneratorTests
         Assert.False(meta.ContainsKey("collectionEntryStatus"));
     }
 
+    private sealed record NestedJob
+    {
+        public string? Name { get; init; }
+        public bool Active { get; init; }
+    }
+
+    private sealed record JobHolder
+    {
+        [CfCollection(Label = "name", AddLabel = "Add job", Status = "active")]
+        public IDictionary<int, NestedJob> Jobs { get; init; } = new Dictionary<int, NestedJob>();
+    }
+
+    private sealed record NestedCollectionConfig
+    {
+        public JobHolder Holder { get; init; } = new();
+    }
+
+    [Fact]
+    public void CfCollection_OnNestedProperty_EmitsInlineHints()
+    {
+        Assert.NotNull(new NestedCollectionConfig());
+        Assert.NotNull(new JobHolder());
+        Assert.NotNull(new NestedJob());
+        string json = new ClrSchemaGenerator().Generate<NestedCollectionConfig>(new() { Id = "n" });
+
+        JsonObject jobs = (JsonObject)
+            JsonNode.Parse(json)!["schema"]!["properties"]!["holder"]!["properties"]!["jobs"]!;
+        Assert.Equal("name", jobs["x-collection-label"]!.GetValue<string>());
+        Assert.Equal("Add job", jobs["x-collection-add-label"]!.GetValue<string>());
+        Assert.Equal("active", jobs["x-collection-status"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void CfCollection_InlineHints_ParseOntoMapFieldDefinition()
+    {
+        Assert.NotNull(new JobHolder());
+        string json = new ClrSchemaGenerator().Generate<JobHolder>(new() { Id = "j" });
+
+        ConfigSchema schema = new JsonFormsSchemaParser().Parse(json);
+        FieldDefinition jobs = schema.Fields["jobs"];
+        Assert.Equal("map", jobs.ControlType);
+        Assert.Equal("name", jobs.CollectionLabelKey);
+        Assert.Equal("active", jobs.CollectionStatusKey);
+        Assert.Equal("Add job", jobs.CollectionAddLabel);
+    }
+
     [Fact]
     public void Overlay_DeepMergesOverGeneratedDocument()
     {

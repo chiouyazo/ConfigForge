@@ -547,6 +547,43 @@ public sealed class ConfigForgeShellTests : BunitContext
     }
 
     [Fact]
+    public void ConfigForgeShell_InlineMap_LabelsAndStatusFromCollectionHints_OnNonUuidKeys()
+    {
+        IJsonFormsSchemaParser parser = Services.GetRequiredService<IJsonFormsSchemaParser>();
+        ConfigSchema schema = parser.Parse(InlineMapCollectionSchema);
+
+        var document = new ConfigDocument();
+        document["jobs"] = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["1"] = new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["name"] = "Alpha",
+                ["active"] = true,
+            },
+            ["2"] = new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["name"] = "Beta",
+                ["active"] = false,
+            },
+        };
+
+        IRenderedComponent<ConfigForgeShell> cut = Render<ConfigForgeShell>(parameters =>
+            parameters.Add(p => p.Schema, schema).Add(p => p.Document, document)
+        );
+
+        // Entries are labelled by the hinted field, not the string keys "1"/"2".
+        List<string> labels =
+        [
+            .. cut.FindAll(".cf-map-nav-label").Select(e => e.TextContent.Trim()),
+        ];
+        Assert.Equal(["Alpha", "Beta"], labels);
+
+        // The inactive entry shows the "off" dot, the active one the "on" dot.
+        Assert.Single(cut.FindAll(".cf-map-nav-item .cf-collection-status.cf-off"));
+        Assert.Single(cut.FindAll(".cf-map-nav-item .cf-collection-status.cf-on"));
+    }
+
+    [Fact]
     public void ConfigForgeShell_NullableObjectToggledOff_RemovesKeyAndStaysValid()
     {
         IJsonFormsSchemaParser parser = Services.GetRequiredService<IJsonFormsSchemaParser>();
@@ -1176,6 +1213,35 @@ public sealed class ConfigForgeShellTests : BunitContext
               { "actionId": "log.test", "label": "Test log db", "placement": { "category": "Analytics", "section": "Logging" } }
             ]
           }
+        }
+        """;
+
+    private const string InlineMapCollectionSchema = """
+        {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "jobs": {
+                "type": "object",
+                "x-collection-label": "name",
+                "x-collection-status": "active",
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "name": { "type": "string", "title": "Name" },
+                    "active": { "type": "boolean", "title": "Active" }
+                  }
+                }
+              }
+            }
+          },
+          "uiSchema": {
+            "type": "Categorization",
+            "elements": [
+              { "type": "Category", "label": "Jobs", "elements": [ { "type": "Control", "scope": "#/properties/jobs" } ] }
+            ]
+          },
+          "x-cf": { "id": "mapf", "name": "MapF" }
         }
         """;
 

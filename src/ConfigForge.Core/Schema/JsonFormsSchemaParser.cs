@@ -338,6 +338,15 @@ public sealed partial class JsonFormsSchemaParser : IJsonFormsSchemaParser
             Children = children,
             ValueField = valueField,
             KeyFormat = GetString(control, "keyFormat") ?? GetString(propSchema, "x-key-format"),
+            CollectionLabelKey =
+                GetString(control, "collectionLabel")
+                ?? GetString(propSchema, "x-collection-label"),
+            CollectionStatusKey =
+                GetString(control, "collectionStatus")
+                ?? GetString(propSchema, "x-collection-status"),
+            CollectionAddLabel =
+                GetString(control, "collectionAddLabel")
+                ?? GetString(propSchema, "x-collection-add-label"),
             Section =
                 GetString(control, "section")
                 ?? GetString(propSchema, "x-section")

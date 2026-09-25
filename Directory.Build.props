@@ -13,7 +13,7 @@
 
   <PropertyGroup>
     <IsPackable>false</IsPackable>
-    <Version>1.0.18</Version>
+    <Version>1.0.21</Version>
     <Authors>chiouyazo</Authors>
     <Product>ConfigForge</Product>
     <Copyright>Copyright © chiouyazo</Copyright>

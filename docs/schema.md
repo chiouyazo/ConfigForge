@@ -142,6 +142,8 @@ Here `connectors` is a keyed `map` (typically `additionalProperties` = an `oneof
 
 When generating from CLR types, the whole block above is produced by `[CfCollection]` on the map property (see [generation.md](generation.md)); you rarely write it by hand.
 
+A `map` that is not a sidebar category (for example a dictionary nested on another collection's entry) renders inline as its own master/detail control. It reads the same intent from inline hints on the map's own schema node: `x-collection-label` (entry sub-key used as the list label, for any key type), `x-collection-status` (boolean sub-key shown as a status dot), and `x-collection-add-label`. `[CfCollection]` emits these automatically, so nested master/detail dictionaries label and show status the same way as top-level ones.
+
 ## Control types
 
 The control is inferred from the JSON Schema unless you set `x-cf.controls[key].type`.

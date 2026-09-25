@@ -22,15 +22,21 @@
                 {
                     string key = entryKey;
                     <button type="button"
-                            class="cf-map-nav-item @(string.Equals(key, SelectedKey, StringComparison.Ordinal) ? "cf-map-nav-active" : string.Empty)"
+                            class="cf-map-nav-item @(string.Equals(key, SelectedKey, StringComparison.Ordinal) ? "cf-map-nav-active" : string.Empty) @(EntryInactive(key) ? "cf-inactive" : string.Empty)"
                             @onclick="@(() => SelectedKey = key)">
-                        @EntryLabel(key)
+                        @if (Field.CollectionStatusKey is { Length: > 0 })
+                        {
+                            <span class="cf-collection-status @(EntryInactive(key) ? "cf-off" : "cf-on")"
+                                  title="@(EntryInactive(key) ? "Inactive" : "Active")"
+                                  aria-hidden="true"></span>
+                        }
+                        <span class="cf-map-nav-label">@EntryLabel(key)</span>
                     </button>
                 }
                 @if (!Disabled)
                 {
                     <button type="button" class="cf-button cf-map-add" @onclick="AddEntry">
-                        Add entry
+                        @AddLabel
                     </button>
                 }
             </div>
@@ -112,7 +118,7 @@
         @if (!Disabled)
         {
             <button type="button" class="cf-button cf-map-add" @onclick="AddEntry">
-                Add entry
+                @AddLabel
             </button>
         }
     }
@@ -180,41 +186,64 @@
 
     private List<string> ReadKeys() => [.. ReadMap().Keys];
 
+    private string AddLabel =>
+        string.IsNullOrEmpty(Field.CollectionAddLabel) ? "Add entry" : Field.CollectionAddLabel;
+
     /// <summary>
-    /// Label shown for an entry in the master list: the key for keyed maps, otherwise the entry's
-    /// name-like field, then its discriminator, then a positional fallback.
+    /// Label shown for an entry in the master list: the hinted collection-label field (any key
+    /// format), otherwise for keyless maps a name-like field then the discriminator, otherwise the
+    /// key, and finally a positional fallback.
     /// </summary>
     private string EntryLabel(string key)
     {
+        if (ReadMap().TryGetValue(key, out object? value) && value is IDictionary<string, object?> entry)
+        {
+            if (
+                Field.CollectionLabelKey is { Length: > 0 } labelKey
+                && entry.TryGetValue(labelKey, out object? lv)
+                && lv is string ls
+                && ls.Length > 0
+            )
+            {
+                return ls;
+            }
+
+            if (Keyless)
+            {
+                foreach (string nameKey in new[] { "name", "displayName", "label", "title" })
+                {
+                    if (entry.TryGetValue(nameKey, out object? nv) && nv is string s && s.Length > 0)
+                    {
+                        return s;
+                    }
+                }
+
+                string? discriminator = ValueTemplate.DiscriminatorKey;
+                if (
+                    !string.IsNullOrEmpty(discriminator)
+                    && entry.TryGetValue(discriminator, out object? dv)
+                    && dv is string ds
+                    && ds.Length > 0
+                )
+                {
+                    return ds;
+                }
+            }
+        }
+
         if (!Keyless)
         {
             return key;
         }
 
-        if (ReadMap().TryGetValue(key, out object? value) && value is IDictionary<string, object?> entry)
-        {
-            foreach (string nameKey in new[] { "name", "displayName", "label", "title" })
-            {
-                if (entry.TryGetValue(nameKey, out object? nv) && nv is string s && s.Length > 0)
-                {
-                    return s;
-                }
-            }
-
-            string? discriminator = ValueTemplate.DiscriminatorKey;
-            if (
-                !string.IsNullOrEmpty(discriminator)
-                && entry.TryGetValue(discriminator, out object? dv)
-                && dv is string ds
-                && ds.Length > 0
-            )
-            {
-                return ds;
-            }
-        }
-
         return $"Entry {ReadKeys().IndexOf(key) + 1}";
     }
+
+    private bool EntryInactive(string key) =>
+        Field.CollectionStatusKey is { Length: > 0 } statusKey
+        && ReadMap().TryGetValue(key, out object? value)
+        && value is IDictionary<string, object?> entry
+        && (!entry.TryGetValue(statusKey, out object? status) || status is not true);
 
     private void AddEntry()
     {

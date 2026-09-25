@@ -413,6 +413,13 @@ public sealed class ClrSchemaGenerator : IClrSchemaGenerator
                 ?? member?.Loader
         );
 
+        // Inline collection hints so a nested map (master/detail inside master/detail) labels and
+        // shows status for its entries too, not only a top-level sidebar collection.
+        CfCollectionAttribute? collection = property.GetCustomAttribute<CfCollectionAttribute>();
+        ApplyStringHint(schema, "x-collection-label", collection?.Label);
+        ApplyStringHint(schema, "x-collection-add-label", collection?.AddLabel);
+        ApplyStringHint(schema, "x-collection-status", collection?.Status);
+
         if (
             property.GetCustomAttribute<CfUntrackedAttribute>() is not null
             || options2?.Tracked == false

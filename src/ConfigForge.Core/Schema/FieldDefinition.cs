@@ -85,6 +85,26 @@ public sealed class FieldDefinition
     public string? KeyFormat { get; init; }
 
     /// <summary>
+    /// For a <c>map</c> of objects, the relative key within one entry whose value labels that entry
+    /// in the master list, regardless of key format (from <c>x-collection-label</c> /
+    /// <c>[CfCollection(Label)]</c>). Null falls back to the key or a name-like heuristic.
+    /// </summary>
+    public string? CollectionLabelKey { get; init; }
+
+    /// <summary>
+    /// For a <c>map</c> of objects, the relative key within one entry of a boolean field shown as a
+    /// status dot (inactive entries dimmed), from <c>x-collection-status</c> /
+    /// <c>[CfCollection(Status)]</c>. Null shows no status.
+    /// </summary>
+    public string? CollectionStatusKey { get; init; }
+
+    /// <summary>
+    /// For a <c>map</c> control, an optional label for the "add" affordance (from
+    /// <c>x-collection-add-label</c> / <c>[CfCollection(AddLabel)]</c>). Null uses the default.
+    /// </summary>
+    public string? CollectionAddLabel { get; init; }
+
+    /// <summary>
     /// Optional section (tab/group) this field belongs to within its container. Used by
     /// composite controls (e.g. <c>oneof</c>) to organise their child fields into tabs.
     /// </summary>
@@ -140,6 +160,9 @@ public sealed class FieldDefinition
             Children = Children,
             ValueField = ValueField,
             KeyFormat = KeyFormat,
+            CollectionLabelKey = CollectionLabelKey,
+            CollectionStatusKey = CollectionStatusKey,
+            CollectionAddLabel = CollectionAddLabel,
             Section = Section,
             DiscriminatorKey = DiscriminatorKey,
             OneOfVariants = OneOfVariants,
@@ -244,6 +267,9 @@ public sealed class FieldDefinition
             Children = Children,
             ValueField = ValueField,
             KeyFormat = KeyFormat,
+            CollectionLabelKey = CollectionLabelKey,
+            CollectionStatusKey = CollectionStatusKey,
+            CollectionAddLabel = CollectionAddLabel,
             Section = Section,
             DiscriminatorKey = DiscriminatorKey,
             OneOfVariants = OneOfVariants,
