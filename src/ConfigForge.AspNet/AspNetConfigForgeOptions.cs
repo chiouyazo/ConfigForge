@@ -68,6 +68,14 @@ public sealed class AspNetConfigForgeOptions
     public IReadOnlyList<ConfigForgeHeaderAction> HeaderActions { get; set; } = [];
 
     /// <summary>
+    /// Raw HTML rendered verbatim at the end of the hosted page's &lt;head&gt; - e.g. a
+    /// &lt;style&gt;/&lt;script&gt; pair the host uses to inject its own banner or widget into the
+    /// page once it loads. Null by default. The host is responsible for escaping/sanitizing
+    /// anything it interpolates into this string; ConfigForge renders it unescaped.
+    /// </summary>
+    public string? CustomHeadHtml { get; set; }
+
+    /// <summary>
     /// Optional callback invoked when a configuration document is saved. The first
     /// argument is the schema or document identifier, the second is the serialized
     /// document payload. Required in <see cref="ConfigForgeMode.Locked"/> mode.

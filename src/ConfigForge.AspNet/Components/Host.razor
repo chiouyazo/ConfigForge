@@ -11,6 +11,10 @@
     <link rel="stylesheet" href="_content/ConfigForge.Blazor/configforge.css" />
     <link rel="stylesheet" href="_content/ConfigForge.AspNet/configforge.host.css" />
     @((MarkupString)$"<style>{ThemeVariables}</style>")
+    @if (State.Options.CustomHeadHtml is { Length: > 0 } customHeadHtml)
+    {
+        @((MarkupString)customHeadHtml)
+    }
     <HeadOutlet />
 </head>
 
