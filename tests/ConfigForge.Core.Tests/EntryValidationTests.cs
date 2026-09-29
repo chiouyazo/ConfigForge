@@ -118,6 +118,20 @@ public sealed class EntryValidationTests
     }
 
     [Fact]
+    public void Parse_RequiredChildOfExplicitlyNulledNullableObject_IsNotReportedMissing()
+    {
+        const string doc = """{ "smtp": null }""";
+
+        ConfigDocumentParseResult result = new ConfigDocumentEngine().Parse(
+            doc,
+            NullableObjectSchema()
+        );
+
+        Assert.True(result.IsValid);
+        Assert.DoesNotContain("smtp/host", result.MissingRequiredKeys, StringComparer.Ordinal);
+    }
+
+    [Fact]
     public void Serialize_StripsUntrackedFieldInsideEntry()
     {
         var document = new ConfigDocument();

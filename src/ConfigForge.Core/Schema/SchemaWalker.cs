@@ -122,7 +122,7 @@ public static class SchemaWalker
 
             case "object":
             case "nullable-object":
-                if (document.ContainsKey(key))
+                if (document.TryGetValue(key, out object? value) && value is not null)
                 {
                     foreach (FieldDefinition child in field.Children)
                     {
