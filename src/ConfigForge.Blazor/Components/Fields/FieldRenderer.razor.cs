@@ -134,13 +134,15 @@ public sealed partial class FieldRenderer : ComponentBase, IDisposable
     /// <inheritdoc />
     protected override async Task OnParametersSetAsync()
     {
+        // Keyed by field as well as loader: a collection shows one entry at a time in the same
+        // component, so the field key changes under a reused instance and its options must load too.
         if (
             Field.LoaderId is { Length: > 0 } loaderId
-            && !string.Equals(_loadedFor, loaderId, StringComparison.Ordinal)
+            && !string.Equals(_loadedFor, $"{Field.Key}|{loaderId}", StringComparison.Ordinal)
             && Session.GetFieldOptions(Field.Key) is null
         )
         {
-            _loadedFor = loaderId;
+            _loadedFor = $"{Field.Key}|{loaderId}";
             await LoadOptionsAsync(loaderId);
         }
     }
