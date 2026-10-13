@@ -16,9 +16,41 @@
     @if (Enabled)
     {
         <div class="cf-nullable-object-body">
-            @foreach (FieldDefinition child in Field.Children)
+            @foreach (FieldDefinition child in Field.Children.Where(c => string.IsNullOrEmpty(c.Section)))
             {
                 <FieldRenderer Field="RebaseChild(child)" Disabled="Disabled" />
+            }
+
+            @if (Sections.Count > 1)
+            {
+                <div class="cf-tabs">
+                    <div class="cf-tab-strip" role="tablist">
+                        @foreach (string section in Sections)
+                        {
+                            string s = section;
+                            <button type="button"
+                                    role="tab"
+                                    aria-selected="@(s == ActiveSection ? "true" : "false")"
+                                    class="cf-tab @(s == ActiveSection ? "cf-active" : string.Empty)"
+                                    @onclick="@(() => Session.SetSelectedSection(Field.Key, s))">
+                                @s
+                            </button>
+                        }
+                    </div>
+                    <div class="cf-tab-panel" role="tabpanel">
+                        @foreach (FieldDefinition child in Field.Children.Where(c => c.Section == ActiveSection))
+                        {
+                            <FieldRenderer Field="RebaseChild(child)" Disabled="Disabled" />
+                        }
+                    </div>
+                </div>
+            }
+            else
+            {
+                @foreach (FieldDefinition child in Field.Children.Where(c => !string.IsNullOrEmpty(c.Section)))
+                {
+                    <FieldRenderer Field="RebaseChild(child)" Disabled="Disabled" />
+                }
             }
         </div>
     }
@@ -39,6 +71,18 @@
 
     /// <summary>Enabled when the stored value is a present object (not null / absent).</summary>
     private bool Enabled => Session.Document[Field.Key] is IDictionary<string, object?>;
+
+    private List<string> Sections =>
+        [.. Field.Children
+            .Select(c => c.Section)
+            .Where(s => !string.IsNullOrEmpty(s))
+            .Select(s => s!)
+            .Distinct(StringComparer.Ordinal)];
+
+    private string? ActiveSection =>
+        Session.GetSelectedSection(Field.Key) is { } stored && Sections.Contains(stored)
+            ? stored
+            : Sections.FirstOrDefault();
 
     private ControlDescriptor Header =>
         new()
