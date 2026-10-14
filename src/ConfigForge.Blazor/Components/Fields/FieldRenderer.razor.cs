@@ -18,6 +18,7 @@ public sealed partial class FieldRenderer : ComponentBase, IDisposable
 {
     private string? _loadedFor;
     private bool _disposed;
+    private CancellationTokenSource? _loadCts;
 
     /// <summary>The resolved field definition driving the control choice.</summary>
     [Parameter]
@@ -129,6 +130,8 @@ public sealed partial class FieldRenderer : ComponentBase, IDisposable
 
     private bool Loading => Session.IsFieldLoading(Field.Key);
 
+    private bool LoadFailed => Session.IsFieldLoadFailed(Field.Key);
+
     private string? FieldError => Session.GetFieldError(Field.Key);
 
     /// <inheritdoc />
@@ -153,24 +156,53 @@ public sealed partial class FieldRenderer : ComponentBase, IDisposable
         if (!_disposed)
         {
             _disposed = true;
+            _loadCts?.Cancel();
+            _loadCts?.Dispose();
         }
     }
 
+    private Task RetryLoadAsync() =>
+        Field.LoaderId is { Length: > 0 } loaderId
+            ? LoadOptionsAsync(loaderId)
+            : Task.CompletedTask;
+
     private async Task LoadOptionsAsync(string loaderId)
     {
-        Session.SetFieldLoading(Field.Key, true);
+        if (_loadCts is not null)
+        {
+            await _loadCts.CancelAsync();
+            _loadCts.Dispose();
+        }
+
+        CancellationTokenSource cts = new();
+        _loadCts = cts;
+
+        string key = Field.Key;
+        Session.SetFieldLoadFailed(key, false);
+        Session.SetFieldLoading(key, true);
         try
         {
-            ActionContext context = new(Session, Services, Field.Key);
-            IReadOnlyList<SelectOption> options = await Dispatcher.DispatchLoaderAsync(
-                loaderId,
-                context
-            );
-            Session.SetFieldOptions(Field.Key, options);
+            ActionContext context = new(Session, Services, key);
+            IReadOnlyList<SelectOption> options = await Dispatcher
+                .DispatchLoaderAsync(loaderId, context)
+                .WaitAsync(Session.OptionLoadTimeout, cts.Token);
+            Session.SetFieldOptions(key, options);
+        }
+        catch (TimeoutException)
+        {
+            Session.SetFieldLoadFailed(key, true);
+        }
+        catch (OperationCanceledException)
+        {
+            // Superseded by a newer load or the field left the screen: the next render loads again.
+            if (string.Equals(_loadedFor, $"{key}|{loaderId}", StringComparison.Ordinal))
+            {
+                _loadedFor = null;
+            }
         }
         finally
         {
-            Session.SetFieldLoading(Field.Key, false);
+            Session.SetFieldLoading(key, false);
         }
     }
 

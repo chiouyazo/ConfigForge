@@ -20,6 +20,14 @@
     }
     else
     {
+        @if (Session.IsLoading)
+        {
+            <div class="cf-loading-banner" role="status">
+                Loading data for this section. You can look around, but editing and saving are available once it has finished.
+            </div>
+        }
+
+        <fieldset class="cf-canvas-lock" disabled="@Session.IsLoading">
         <InvalidConfigBanner ParseResult="Session.ParseResult" />
         @if (!HideUnknownFieldsBanner)
         {
@@ -76,6 +84,7 @@
                 <UiElementRenderer Element="element" Schema="Schema" Document="Session.Document" />
             }
         }
+        </fieldset>
     }
 </div>
 

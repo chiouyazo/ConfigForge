@@ -50,12 +50,12 @@ else
             break;
         case "checklist":
         case "multiselect":
-            <ChecklistField Control="Descriptor" Document="Document" Disabled="disabled" Options="Options" Loading="Loading" OnFieldChanged="OnFieldChanged" />
+            <ChecklistField Control="Descriptor" Document="Document" Disabled="disabled" Options="Options" Loading="Loading" LoadFailed="LoadFailed" OnRetry="RetryLoadAsync" OnFieldChanged="OnFieldChanged" />
             break;
         case "select":
         case "dropdown":
         case "enum":
-            <SelectField Control="Descriptor" Document="Document" Disabled="disabled" Options="Options" Loading="Loading" OnFieldChanged="OnFieldChanged" />
+            <SelectField Control="Descriptor" Document="Document" Disabled="disabled" Options="Options" Loading="Loading" LoadFailed="LoadFailed" OnRetry="RetryLoadAsync" OnFieldChanged="OnFieldChanged" />
             break;
         case "date":
             <DateField Control="Descriptor" Document="Document" Disabled="disabled" OnFieldChanged="OnFieldChanged" />

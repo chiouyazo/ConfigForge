@@ -6,6 +6,10 @@
     {
         <div class="cf-loading" role="status">Loading options…</div>
     }
+    else if (LoadFailed)
+    {
+        <LoadFailedNotice OnRetry="OnRetry" />
+    }
     else
     {
         <div class="cf-checklist">
@@ -32,6 +36,14 @@
     /// <summary>True while loader-driven options are being fetched.</summary>
     [Parameter]
     public bool Loading { get; set; }
+
+    /// <summary>True when loading the options timed out or failed.</summary>
+    [Parameter]
+    public bool LoadFailed { get; set; }
+
+    /// <summary>Raised when the user retries a failed load.</summary>
+    [Parameter]
+    public EventCallback OnRetry { get; set; }
 
     private HashSet<string> _selected = new(StringComparer.Ordinal);
 

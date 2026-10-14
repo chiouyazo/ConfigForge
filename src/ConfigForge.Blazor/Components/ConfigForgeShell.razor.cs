@@ -702,6 +702,15 @@ public sealed partial class ConfigForgeShell : ComponentBase, IDisposable
 
     private async Task SaveAsync()
     {
+        if (Session.IsLoading)
+        {
+            Session.EnqueueToast(
+                "Data is still loading. Please save once it has finished.",
+                ToastSeverity.Warning
+            );
+            return;
+        }
+
         Session.MarkSaveAttempted();
         Session.Revalidate();
         if (Session.ParseResult is { IsValid: false } invalid)

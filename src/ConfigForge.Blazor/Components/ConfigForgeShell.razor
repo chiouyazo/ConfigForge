@@ -81,6 +81,7 @@
         @if (OnSave.HasDelegate)
         {
             <SaveDiscardBar HasChanges="Session.IsDirty"
+                            IsLoading="Session.IsLoading"
                             IsValid="IsValid"
                             OnSave="SaveAsync"
                             OnDiscard="RequestDiscard" />

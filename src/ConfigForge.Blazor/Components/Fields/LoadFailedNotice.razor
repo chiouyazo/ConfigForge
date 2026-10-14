@@ -1,0 +1,10 @@
+<div class="cf-load-failed" role="alert">
+    <span>The options could not be loaded in time.</span>
+    <button type="button" class="cf-button" @onclick="OnRetry">Retry</button>
+</div>
+
+@code {
+    /// <summary>Raised when the user asks to load the options again.</summary>
+    [Parameter]
+    public EventCallback OnRetry { get; set; }
+}

@@ -21,6 +21,7 @@ public sealed class EditingSession : IDisposable
         StringComparer.Ordinal
     );
     private readonly Dictionary<string, bool> _fieldLoading = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _fieldLoadFailed = new(StringComparer.Ordinal);
     private readonly Dictionary<string, bool> _fieldEnabled = new(StringComparer.Ordinal);
 
     private readonly Dictionary<string, string?> _fieldErrors = new(StringComparer.Ordinal);
@@ -123,6 +124,7 @@ public sealed class EditingSession : IDisposable
 
         _fieldOptions.Clear();
         _fieldLoading.Clear();
+        _fieldLoadFailed.Clear();
         _fieldEnabled.Clear();
         _fieldErrors.Clear();
         _collectionEntries.Clear();
@@ -683,6 +685,37 @@ public sealed class EditingSession : IDisposable
 
         _fieldLoading[key] = loading;
         RaiseStateChanged();
+    }
+
+    /// <summary>
+    /// How long a loader-driven field may wait for its options before the load is abandoned and
+    /// reported as failed, so a hung loader can never keep the editor locked.
+    /// </summary>
+    public TimeSpan OptionLoadTimeout { get; set; } = TimeSpan.FromSeconds(15);
+
+    /// <summary>
+    /// True while any field of the displayed area is still loading its data. Editing and saving
+    /// are held back until this is false, because a field that has not loaded yet shows no data
+    /// and an edit or save at that point could act on a state the user cannot see.
+    /// </summary>
+    public bool IsLoading => _fieldLoading.ContainsValue(true);
+
+    /// <summary>True when the field's load timed out or failed and can be retried.</summary>
+    /// <param name="key">The field key.</param>
+    /// <returns>Whether the last load of the field failed.</returns>
+    public bool IsFieldLoadFailed(string key) => _fieldLoadFailed.Contains(key);
+
+    /// <summary>Marks a field's load as failed or clears that mark.</summary>
+    /// <param name="key">The field key.</param>
+    /// <param name="failed">Whether the load failed.</param>
+    public void SetFieldLoadFailed(string key, bool failed)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+
+        if (failed ? _fieldLoadFailed.Add(key) : _fieldLoadFailed.Remove(key))
+        {
+            RaiseStateChanged();
+        }
     }
 
     /// <summary>

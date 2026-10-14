@@ -6,6 +6,10 @@
             {
                 <span class="cf-save-invalid">Resolve validation issues before saving.</span>
             }
+            else if (IsLoading)
+            {
+                <span class="cf-save-loading">Waiting for data to finish loading before saving.</span>
+            }
             else if (HasChanges)
             {
                 <span class="cf-save-dirty">You have unsaved changes.</span>
@@ -41,6 +45,10 @@
     [Parameter]
     public bool IsValid { get; set; } = true;
 
+    /// <summary>True while data of the displayed area is still loading; saving is held back.</summary>
+    [Parameter]
+    public bool IsLoading { get; set; }
+
     /// <summary>Raised when the user confirms a save.</summary>
     [Parameter]
     public EventCallback OnSave { get; set; }
@@ -49,7 +57,7 @@
     [Parameter]
     public EventCallback OnDiscard { get; set; }
 
-    private bool Visible => HasChanges || !IsValid;
+    private bool Visible => HasChanges || !IsValid || IsLoading;
 
-    private bool CanSave => HasChanges && IsValid;
+    private bool CanSave => HasChanges && IsValid && !IsLoading;
 }
