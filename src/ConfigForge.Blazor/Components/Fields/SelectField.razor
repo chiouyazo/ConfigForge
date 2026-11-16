@@ -16,11 +16,9 @@
                 value="@(HasMatchingOption ? CurrentString : string.Empty)"
                 disabled="@(Disabled || Control.ReadOnly)"
                 @onchange="OnInputAsync">
-            @* The empty placeholder is only a "nothing selected yet" hint: once a valid value is
-               chosen (e.g. an enum with a default), drop it so it is not offered as clutter. *@
-            @if (!HasMatchingOption)
+            @if (!HasMatchingOption || !Control.Required)
             {
-                <option value="" selected>@PlaceholderText</option>
+                <option value="" selected="@(!HasMatchingOption)">@PlaceholderText</option>
             }
             @foreach (SelectOption option in Options)
             {
